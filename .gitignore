@@ -84,3 +84,6 @@ backups/
 # Host-local process config and visit test output
 /solvar.config.cjs
 /qa-visits/
+/qa-hardening/
+/qa-store/
+local.db*

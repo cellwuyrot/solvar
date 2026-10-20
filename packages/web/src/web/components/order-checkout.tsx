@@ -46,7 +46,7 @@ export function OrderCheckout({ totalKopecks, onAccepted, onBusy }: { totalKopec
     finally { submitting.current = false; setBusy(false); onBusy(false); }
   }
   return <form onSubmit={submit} className="space-y-3 mt-4">
-    <p className="text-sm text-muted">Оплаты на этом шаге нет. Продавец подтвердит наличие, возможность продажи и доставку, затем сообщит итоговую сумму и доступный способ оплаты. Приём заявок должен быть включён только после проверки документов и требований страны продаж.</p>
+    <p className="text-sm text-muted">Оплаты на этом шаге нет. После резервирования ожидайте обратной связи по оформлению: продавец подтвердит наличие и доставку, затем сообщит итоговую сумму и способ оплаты.</p>
     <label className="field-label">Имя<input className="field mt-1" autoComplete="name" required minLength={2} maxLength={100} disabled={busy} value={name} onChange={e => setName(e.target.value)} /></label>
     <label className="field-label">Телефон<input className="field mt-1" type="tel" autoComplete="tel" required minLength={7} maxLength={40} disabled={busy} value={phone} onChange={e => setPhone(e.target.value)} /></label>
     <label className="field-label">Email для связи (необязательно)<input className="field mt-1" type="email" autoComplete="email" maxLength={254} disabled={busy} value={email} onChange={e => setEmail(e.target.value)} /></label>
@@ -55,6 +55,6 @@ export function OrderCheckout({ totalKopecks, onAccepted, onBusy }: { totalKopec
     <label className="flex items-start gap-2 text-xs leading-5"><input className="mt-1" type="checkbox" required checked={consent} disabled={busy} onChange={e => setConsent(e.target.checked)} /><span>Согласен на обработку имени, телефона, email и комментария для обработки заявки согласно <a className="underline" href="/info/privacy" target="_blank" rel="noreferrer">политике конфиденциальности</a>.</span></label>
     {shop.data?.captchaSiteKey && <OrderCaptcha key={captchaReset} siteKey={shop.data.captchaSiteKey} onToken={setCaptchaToken} onError={setError} />}
     {error && <p role="alert" className="error">{error}</p>}
-    <button className="btn w-full" disabled={busy || !consent || (!!shop.data?.captchaSiteKey && !captchaToken)}>{busy ? "Сохраняем заявку…" : "Отправить заявку без оплаты"}</button>
+    <button className="btn w-full" disabled={busy || !consent || (!!shop.data?.captchaSiteKey && !captchaToken)}>{busy ? "Сохраняем заявку…" : "Зарезервировать"}</button>
   </form>;
 }

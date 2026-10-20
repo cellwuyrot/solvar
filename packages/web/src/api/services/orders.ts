@@ -5,6 +5,8 @@ import { db } from "../database";
 import * as s from "../database/schema";
 import { integrationSchema, type OrderSnapshot } from "../../shared/orders";
 import { productSchema, settingsSchema, rub } from "../../shared/shop";
+import { COMMERCE_ENABLED } from "./commerce-policy";
+import { captchaConfigured, captchaRequired } from "./order-security";
 
 export const digest = (v: string) => createHash("sha256").update(v).digest("hex");
 export async function getIntegration() {
@@ -12,8 +14,11 @@ export async function getIntegration() {
   return integrationSchema.parse(row ? JSON.parse(row.data) : {});
 }
 export const tokenConfigured = () => Boolean(process.env.TELEGRAM_BOT_TOKEN?.trim());
+/** Requests are accepted only when the owner enabled intake and, if required, CAPTCHA keys are present (fail closed). */
 export async function ordersAvailable() {
-  return false;
+  if (!COMMERCE_ENABLED) return false;
+  if (captchaRequired() && !captchaConfigured()) return false;
+  return (await getIntegration()).enabled;
 }
 export async function getSettings() {
   const [row] = await db.select().from(s.settings).where(eq(s.settings.id, "main"));

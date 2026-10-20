@@ -16,8 +16,14 @@ const rpc = (token = "", origin = "http://localhost:4200", ip = "192.0.2.55"): A
 const reject = (fn: () => Promise<unknown>, code: string) => assert.rejects(fn, (e: unknown) => (e as { code?: string }).code === code);
 const pass = (text: string) => console.log("PASS " + text);
 const anon = rpc();
-const oversized = await app.fetch(new Request("http://localhost:4200/api/rpc/visits/create", { method: "POST", headers: { "Content-Type": "application/json", origin: "http://localhost:4200" }, body: JSON.stringify({ json: { name: "x".repeat(9000) } }) }), { clientIp: "192.0.2.98" });
+const oversizedBody = JSON.stringify({ json: { name: "x".repeat(9000) } });
+const oversizedRequest = (headers: Record<string, string>) => new Request("http://localhost:4200/api/rpc/visits/create", { method: "POST", headers: { "Content-Type": "application/json", origin: "http://localhost:4200", ...headers }, body: oversizedBody });
+// Real HTTP clients and Bun.serve always declare Content-Length, so the limit answers 413.
+const oversized = await app.fetch(oversizedRequest({ "content-length": String(new TextEncoder().encode(oversizedBody).length) }), { clientIp: "192.0.2.98" });
 assert.equal(oversized.status, 413);
+// A body without a declared length must still be rejected (never accepted as a visit).
+const undeclared = await app.fetch(oversizedRequest({}), { clientIp: "192.0.2.97" });
+assert.ok(undeclared.status === 400 || undeclared.status === 413, "undeclared oversized body must be rejected, got " + undeclared.status);
 const login = await auth.api.signInEmail({ body: { email: process.env.ADMIN_EMAIL!, password: process.env.ADMIN_PASSWORD! } });
 const owner = rpc(login.token);
 assert.equal((await anon.visits.config()).enabled, false);
@@ -69,9 +75,9 @@ assert(message.includes(input.requestId)); assert(!message.includes(input.phone)
 assert.equal((await db.select().from(s.visits))[0].notification, "sent");
 await tickVisitNotifications(); assert.equal(calls.length, 2);
 assert.deepEqual((await anon.shop.catalog()).products, []);
-assert.equal((await anon.shop.catalog()).ordersEnabled, false);
-await reject(() => owner.management.saveIntegration({ enabled: true }), "FORBIDDEN");
-pass("Telegram outbox sends reference/link only; no phone/name; no resend after success; commerce remains disabled");
+assert.equal((await anon.shop.catalog()).ordersEnabled, true);
+await reject(() => owner.management.saveIntegration({ enabled: true, documentsReady: false }), "BAD_REQUEST");
+pass("Telegram outbox sends reference/link only; no phone/name; no resend after success; reservation intake stays enabled");
 const managerPassword = "Manager-Isolated-123!";
 await owner.management.createManager({ name: "Менеджер Один", email: "manager1@example.invalid", ownerPassword: process.env.ADMIN_PASSWORD!, managerPassword });
 await owner.management.createManager({ name: "Менеджер Два", email: "manager2@example.invalid", ownerPassword: process.env.ADMIN_PASSWORD!, managerPassword });

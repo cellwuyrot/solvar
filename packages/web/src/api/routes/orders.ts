@@ -45,9 +45,9 @@ export const orderManagement = {
   integration: admin.handler(async () => ({ ...await getIntegration(), tokenConfigured: tokenConfigured(), smtpConfigured: smtpConfigured(), captchaRequired: captchaRequired(), captchaConfigured: captchaConfigured() })),
   saveIntegration: owner.input(integrationSchema).handler(async ({ input }) => {
     if (input.enabled) requireCommerce();
-    const ready = (input.telegramEnabled && input.chatId && tokenConfigured()) || (input.emailEnabled && input.notifyEmail && smtpConfigured());
-    if (input.enabled && (!input.documentsReady || !ready || (captchaRequired() && !captchaConfigured())))
-      throw new ORPCError("BAD_REQUEST", { message: "Нужны готовые документы, хотя бы один настроенный канал уведомлений и CAPTCHA, если она обязательна" });
+    // A notification channel is optional: saved requests always appear in the admin panel.
+    if (input.enabled && (!input.documentsReady || (captchaRequired() && !captchaConfigured())))
+      throw new ORPCError("BAD_REQUEST", { message: "Подтвердите готовность документов и настройте CAPTCHA, если она обязательна" });
     await db.insert(s.orderIntegration).values({ id: "main", data: JSON.stringify(input) })
       .onConflictDoUpdate({ target: s.orderIntegration.id, set: { data: JSON.stringify(input) } });
     return { ok: true };

@@ -1,5 +1,3 @@
-import { COMMERCE_ENABLED } from "../shared/site-policy";
-import Information from "./pages/information";
 import { Route, Switch } from "wouter";
 const Index = lazy(() => import("./pages/index"));
 import { lazy, Suspense } from "react";
@@ -44,11 +42,8 @@ function LegacyStore() {
 
 const AdminResetPassword = lazy(() => import("./pages/admin-reset-password"));
 function App() {
-  if (COMMERCE_ENABLED) return <LegacyStore />;
-  return <Provider><Suspense fallback={<div className="container py-24" role="status">Загрузка…</div>}><Switch>
-    <Route path="/admin/reset-password" component={AdminResetPassword} />
-    <Route path="/admin" component={Admin} />
-    <Route component={Information} />
-  </Switch></Suspense></Provider>;
+  if (window.location.pathname.startsWith("/admin/reset-password"))
+    return <Provider><Suspense fallback={<div className="container py-24" role="status">Загрузка…</div>}><AdminResetPassword /></Suspense></Provider>;
+  return <LegacyStore />;
 }
 export default App;

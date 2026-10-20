@@ -223,7 +223,7 @@ function Dashboard({ email, role, userId, onLogout }: { email: string; userId: s
                   : "Каталог товаров"}
             </h1>
             <p className="mt-2 text-sm text-muted">
-              Управление карточками и черновиками каталога. Публичные заказы отключены.
+              Управление карточками каталога и заявками на резервирование.
             </p>
           </div>
           {(tab === "products" || tab === "sets") && (
@@ -586,7 +586,7 @@ function ProductEditor({
           <div className="flex gap-5 sm:col-span-2">
             {(
               [
-                ["active", "Публикация (недоступна в информационном режиме)"],
+                ["active", "Опубликовать в каталоге"],
                 ["featured", "Выбор SOLVAR"],
               ] as const
             ).map(([key, label]) => (

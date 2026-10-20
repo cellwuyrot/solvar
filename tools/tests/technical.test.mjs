@@ -32,7 +32,7 @@ test("env initializer creates a random secret and never overwrites existing sett
     assert.equal(run().status, 0);
     const original = fs.readFileSync(path.join(temporary, ".env"), "utf8");
     assert.match(original, /^BETTER_AUTH_SECRET=[a-f0-9]{64}$/m);
-    assert.match(original, /^NOTIFICATION_WORKER_ENABLED=false$/m);
+    assert.match(original, /^NOTIFICATION_WORKER_ENABLED=true$/m);
     assert.equal(run().status, 0);
     assert.equal(fs.readFileSync(path.join(temporary, ".env"), "utf8"), original);
   } finally { fs.rmSync(temporary, { recursive: true, force: true }); }
