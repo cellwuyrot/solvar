@@ -1,0 +1,92 @@
+import { createORPCClient } from "@orpc/client";
+import { RPCLink } from "@orpc/client/fetch";
+import { auth } from "../src/api/auth";
+import type { AppRouterClient } from "../src/api";
+import seed from "../src/shared/catalog-seed.json";
+import { productSchema } from "../src/shared/shop";
+
+const rpcUrl = process.env.VERIFY_RPC_URL || "http://localhost:4200/api/rpc";
+const anon: AppRouterClient = createORPCClient(new RPCLink({ url: rpcUrl }));
+const pub = await anon.shop.catalog();
+if (pub.products.length !== 0 || pub.products.some((p) => p.cost !== 0)) {
+  throw Error("Expected an empty public catalogue of inactive SOLVAR setup templates");
+}
+console.log("PASS: hidden setup templates are not exposed in the public catalogue");
+
+try {
+  await anon.management.saveSettings(pub.settings);
+  throw Error("Anonymous settings write succeeded");
+} catch (e) {
+  if ((e as { code?: string }).code !== "UNAUTHORIZED") throw e;
+}
+console.log("PASS: anonymous management writes rejected");
+
+if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) {
+  throw Error("Set ADMIN_EMAIL and ADMIN_PASSWORD in .env to run the authenticated integration checks");
+}
+const login = await auth.api.signInEmail({
+  body: { email: process.env.ADMIN_EMAIL, password: process.env.ADMIN_PASSWORD },
+});
+const client: AppRouterClient = createORPCClient(
+  new RPCLink({ url: rpcUrl, headers: { Authorization: `Bearer ${login.token}` } }),
+);
+const template = productSchema.parse(seed[0]);
+const p = productSchema.parse({
+  ...template,
+  id: "QA_VERIFY_CIGAR",
+  name: "QA item — remove after test",
+  price: 499,
+  active: true,
+  featured: false,
+  availability: "in_stock",
+  badge: "",
+});
+const setTemplate = productSchema.parse(seed.find((item) => item.section === "sets")!);
+const set = productSchema.parse({
+  ...setTemplate,
+  id: "QA_VERIFY_SET",
+  name: "QA collection — remove after test",
+  price: 999,
+  active: true,
+  contents: [{ productId: p.id, qty: 1 }],
+  badge: "",
+});
+
+try {
+  await client.management.saveProduct(p);
+  await client.management.saveProduct(set);
+  const afterCreate = await anon.shop.catalog();
+  if (!afterCreate.products.some((item) => item.id === p.id)) throw Error("Active item was not published");
+  if (afterCreate.products.some((item) => item.cost !== 0)) throw Error("Internal cost leaked to public API");
+  console.log("PASS: active products published; internal cost excluded");
+
+  try {
+    await client.management.deleteProduct({ id: p.id });
+    throw Error("Deleting a product referenced by a set succeeded");
+  } catch (e) {
+    if ((e as { code?: string }).code !== "CONFLICT") throw e;
+  }
+  console.log("PASS: deleting a product referenced by a collection is rejected");
+
+  const { default: sharp } = await import("sharp");
+  const input = await sharp({ create: { width: 64, height: 64, channels: 3, background: "#b89a70" } }).png().toBuffer();
+  const image = await client.management.upload({ data: `data:image/png;base64,${input.toString("base64")}` });
+  if (!image.image.startsWith("data:image/webp;base64,")) throw Error("Image upload was not converted to WebP");
+  await client.management.saveProduct({ ...p, image: image.image });
+  const afterImage = await anon.shop.catalog();
+  if (afterImage.products.find((item) => item.id === p.id)?.image !== image.image) throw Error("Uploaded image did not persist");
+  console.log("PASS: image is converted to WebP and can be published");
+
+  const signUpCheck = await auth.handler(new Request("http://localhost:4200/api/auth/sign-up/email", {
+    method: "POST",
+    headers: { "content-type": "application/json", origin: "http://localhost:4200" },
+    body: JSON.stringify({ email: `qa-${Date.now()}@example.invalid`, password: "not-a-real-secret-123", name: "QA" }),
+  }));
+  if (signUpCheck.ok) throw Error("Public signup should be disabled");
+  console.log("PASS: public signup remains disabled");
+} finally {
+  try { await client.management.deleteProduct({ id: set.id }); } catch {}
+  try { await client.management.deleteProduct({ id: p.id }); } catch {}
+  try { await auth.api.signOut({ headers: new Headers({ Authorization: `Bearer ${login.token}` }) }); } catch {}
+}
+console.log("SOLVAR integration checks completed");

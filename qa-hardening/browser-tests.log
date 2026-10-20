@@ -1,0 +1,7 @@
+PASS information page has no commerce controls; production CSP present
+PASS legacy product route 404/noindex; safe sitemap; hidden files denied; readiness OK
+PASS owner login uses Secure/HttpOnly/Lax cookie; admin creation UI persists account despite SMTP not configured
+PASS 390px admin layout has no horizontal overflow; native dialog Escape; logo upload keyboard controls visible
+PASS one-use reset UI works and removes token from browser URL
+PASS mobile menu and reduced-motion layout; emulated mobile metrics recorded without claiming real-device performance
+PASS no JavaScript exceptions or CSP violations in exercised routes

@@ -1,0 +1,8 @@
+{
+  "id": "website",
+  "name": "SOLVAR",
+  "description": "SOLVAR — сигары, табак и аксессуары",
+  "url": "http://localhost:4200",
+  "hostname": "localhost",
+  "port": 8080
+}

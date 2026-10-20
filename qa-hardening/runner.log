@@ -1,0 +1,8 @@
+
+> test:hardening
+> node tools/test-hardening.cjs
+
+schema PASS
+seed PASS
+server-security PASS
+Disposable database and logs kept outside the archive; no configured production database was used.

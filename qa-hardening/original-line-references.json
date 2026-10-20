@@ -1,0 +1,102 @@
+[
+  {
+    "file": "packages/web/src/api/routes/orders.ts",
+    "line": 16,
+    "label": "createOrder:"
+  },
+  {
+    "file": "packages/web/src/api/routes/orders.ts",
+    "line": 44,
+    "label": "saveIntegration:"
+  },
+  {
+    "file": "packages/web/src/api/routes/orders.ts",
+    "line": 70,
+    "label": "setPaymentDetails:"
+  },
+  {
+    "file": "packages/web/src/api/routes/orders.ts",
+    "line": 58,
+    "label": "testEmail:"
+  },
+  {
+    "file": "packages/web/src/api/routes/shop.ts",
+    "line": 30,
+    "label": "function publicProduct"
+  },
+  {
+    "file": "packages/web/src/api/routes/shop.ts",
+    "line": 35,
+    "label": "products: (await list())"
+  },
+  {
+    "file": "packages/web/src/api/routes/shop.ts",
+    "line": 89,
+    "label": "saveSettings:"
+  },
+  {
+    "file": "packages/web/src/api/auth.ts",
+    "line": 20,
+    "label": "sameSite:"
+  },
+  {
+    "file": "packages/web/src/api/index.ts",
+    "line": 36,
+    "label": "app.get(\"/api/ready\""
+  },
+  {
+    "file": "packages/web/src/api/services/order-notifications.ts",
+    "line": 19,
+    "label": "try { await transport.sendMail"
+  },
+  {
+    "file": "packages/web/src/api/services/order-notifications.ts",
+    "line": 64,
+    "label": "Promise.all([deliverOrder"
+  },
+  {
+    "file": "packages/web/src/api/services/page-seo.ts",
+    "line": 10,
+    "label": "const products ="
+  },
+  {
+    "file": "packages/web/src/api/services/page-seo.ts",
+    "line": 31,
+    "label": "const products ="
+  },
+  {
+    "file": "packages/web/src/api/services/page-seo.ts",
+    "line": 35,
+    "label": "const offer ="
+  },
+  {
+    "file": "packages/web/src/api/middleware/admin.ts",
+    "line": 9,
+    "label": "session.user.email.toLowerCase()"
+  },
+  {
+    "file": "packages/web/src/web/pages/admin.tsx",
+    "line": 845,
+    "label": "function BrandEditor"
+  },
+  {
+    "file": "packages/web/src/web/pages/admin.tsx",
+    "line": 778,
+    "label": "save.mutate(draft"
+  },
+  {
+    "file": "packages/web/src/web/pages/admin.tsx",
+    "line": 874,
+    "label": "save.mutate(draft"
+  },
+  {
+    "file": "packages/web/tools/backup-local.ts",
+    "line": 9,
+    "label": "const client ="
+  },
+  {
+    "file": "deploy/solvar.service",
+    "line": 11,
+    "label": "ExecStart="
+  }
+]

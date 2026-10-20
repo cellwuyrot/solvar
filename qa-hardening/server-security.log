@@ -1,0 +1,15 @@
+PASS anonymous access and foreign origin rejected; bootstrap owner retained
+PASS immutable commerce lock, replay rejected, worker paused without mutating legacy rows; private history/notes protected
+PASS signed cookie rejects extra segments
+PASS brand-only save preserves texts; stale settings cannot revert logos; public projection excludes internal/commercial fields; unsafe images rejected
+PASS existing notes and optimistic concurrency retained
+PASS local SMTP acceptance/rejection, single recipient validation, production STARTTLS required; NOT real Trioz delivery
+PASS owner creates admin; one-use password setup; staff cannot escalate or access SMTP settings; disabling revokes sessions
+PASS owner cannot disable itself; reauthentication/rate limit; SMTP failure retains account with honest unconfirmed status
+PASS consistent SQLite snapshot, SHA-256 restore to new file, overwrite/missing-source/tamper rejection
+PASS restored notes, catalog rows and administrative schema readable
+PASS additive migrations repeated twice; existing owner, notes and order JSON unchanged; automatic verified backups created
+PASS readiness checks initialization; health remains liveness; API responses no-store
+PASS actual legacy order schema upgraded twice; JSON preserved and missing columns added
+PASS invalid production environment and missing production database fail before creating any database
+ALL ISOLATED HARDENING TESTS PASSED (local mocks only)

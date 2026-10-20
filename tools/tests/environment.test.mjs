@@ -1,0 +1,15 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { resolve } from 'node:path';
+import { validateEnvironment } from '../../packages/web/src/server-utils/environment.ts';
+const dev = { DATABASE_URL: 'file:./isolated.db', BETTER_AUTH_SECRET: 'x'.repeat(64), ADMIN_EMAIL: 'owner@example.invalid', NODE_ENV: 'development' };
+const prod = { ...dev, NODE_ENV: 'production', WEBSITE_URL: 'https://example.invalid', DATABASE_URL: 'file:' + resolve('persistent.db') };
+test('development environment with strong key accepted',()=>assert.doesNotThrow(()=>validateEnvironment(dev)));
+test('missing database rejected',()=>assert.throws(()=>validateEnvironment({...dev,DATABASE_URL:''})));
+test('short key rejected',()=>assert.throws(()=>validateEnvironment({...dev,BETTER_AUTH_SECRET:'short'})));
+test('malformed owner email rejected',()=>assert.throws(()=>validateEnvironment({...dev,ADMIN_EMAIL:'invalid'})));
+test('production HTTPS origin required',()=>assert.throws(()=>validateEnvironment({...prod,WEBSITE_URL:'http://example.invalid'})));
+test('production origin cannot contain credentials, path or query',()=>{for(const WEBSITE_URL of ['https://a:b@example.invalid','https://example.invalid/path','https://example.invalid?q=1'])assert.throws(()=>validateEnvironment({...prod,WEBSITE_URL}));});
+test('production relative SQLite path rejected',()=>assert.throws(()=>validateEnvironment({...prod,DATABASE_URL:'file:./relative.db'})));
+test('insecure local SMTP override forbidden in production',()=>assert.throws(()=>validateEnvironment({...prod,SMTP_ALLOW_INSECURE_LOCAL:'true'})));
+test('production absolute database and HTTPS accepted',()=>assert.doesNotThrow(()=>validateEnvironment(prod)));

@@ -1,0 +1,55 @@
+{
+  "name": "solvar-store",
+  "private": true,
+  "packageManager": "bun@1.3.14",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "node tools/dev-workspace.cjs web",
+    "dev:desktop": "node tools/dev-workspace.cjs desktop",
+    "dev:mobile": "node tools/dev-mobile.cjs",
+    "build": "turbo build",
+    "build:web": "turbo build --filter=@template/web",
+    "start": "pm2 startOrRestart ecosystem.config.cjs --update-env",
+    "stop": "pm2 delete solvar-store",
+    "kill:port": "node tools/kill-port.cjs",
+    "lint": "runkit lint",
+    "lint:fix": "runkit lint --fix",
+    "typecheck": "turbo typecheck",
+    "db:generate": "turbo db:generate",
+    "db:migrate": "turbo db:migrate",
+    "db:push": "turbo db:push",
+    "internal:kill-port": "node tools/kill-port.cjs",
+    "db:seed": "cd packages/web && bun --env-file=../../.env tools/seed.ts",
+    "dev:web": "node tools/dev-workspace.cjs web",
+    "db:orders": "cd packages/web && bun --env-file=../../.env tools/setup-orders.ts",
+    "telegram:chat-id": "cd packages/web && bun --env-file=../../.env tools/telegram-chat-id.ts",
+    "db:backup": "cd packages/web && bun --env-file=../../.env tools/backup-local.ts",
+    "test:orders": "node tools/test-hardening.cjs",
+    "db:migrate:solvar": "cd packages/web && bun --env-file=../../.env tools/migrate-solvar.ts",
+    "env:local": "node tools/setup-local-env.cjs",
+    "test:technical": "node --test tools/tests/technical.test.mjs tools/tests/environment.test.mjs",
+    "db:admins": "cd packages/web && bun --env-file=../../.env tools/setup-admins.ts",
+    "db:restore": "cd packages/web && bun --env-file=../../.env tools/restore-local.ts",
+    "test:hardening": "node tools/test-hardening.cjs",
+    "serve:web": "npm run start --workspace=@template/web"
+  },
+  "devDependencies": {
+    "@runablehq/runkit": "0.1.1",
+    "@tursodatabase/api": "^1.9.2",
+    "@types/bun": "1.3.14",
+    "jose": "^6.2.12",
+    "oxfmt": "^0.73.0",
+    "turbo": "2.9.18",
+    "typescript": "7.0.1-rc",
+    "vite": "7.3.7"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1023.0",
+    "@libsql/client": "^0.17.2",
+    "bun": "1.3.14",
+    "cloudflare": "^5.2.0",
+    "pm2": "^7.0.1"
+  }
+}

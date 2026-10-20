@@ -1,0 +1,45 @@
+
+> test:technical
+> node --test tools/tests/technical.test.mjs tools/tests/environment.test.mjs
+
+✔ development environment with strong key accepted (1.241812ms)
+✔ missing database rejected (0.27683ms)
+✔ short key rejected (0.172729ms)
+✔ malformed owner email rejected (0.246128ms)
+✔ production HTTPS origin required (0.194032ms)
+✔ production origin cannot contain credentials, path or query (0.243495ms)
+✔ production relative SQLite path rejected (0.166692ms)
+✔ insecure local SMTP override forbidden in production (0.164488ms)
+✔ production absolute database and HTTPS accepted (0.15136ms)
+✔ POSIX: allows /app/dist/assets/main.js (1.198062ms)
+✔ POSIX: allows /app/dist/brand/logo.png (0.204211ms)
+✔ POSIX: allows /app/dist (0.134472ms)
+✔ POSIX: rejects /app/dist-other/main.js (0.161828ms)
+✔ POSIX: rejects /app/.env (0.124037ms)
+✔ POSIX: rejects /app (0.991157ms)
+✔ Windows: allows C:\SOLVAR\dist\assets\main.js (0.150758ms)
+✔ Windows: allows C:\SOLVAR\dist\brand\logo.png (0.109716ms)
+✔ Windows: allows C:\SOLVAR\dist (0.098847ms)
+✔ Windows: rejects C:\SOLVAR\dist-other\a.js (0.181589ms)
+✔ Windows: rejects C:\SOLVAR\.env (0.094138ms)
+✔ Windows: rejects D:\other\a.js (0.088641ms)
+✔ rejects unsafe URL "/../.env" (0.16897ms)
+✔ rejects unsafe URL "/../../secrets" (0.080452ms)
+✔ rejects unsafe URL "/assets/../../../.env" (0.068905ms)
+✔ rejects unsafe URL "/..\\secret" (0.041727ms)
+✔ rejects unsafe URL "/assets\\file.js" (0.038874ms)
+✔ rejects unsafe URL "/a\u0000b" (0.057745ms)
+✔ rejects unsafe URL "assets/file.js" (0.047957ms)
+✔ resolves ordinary static URL /assets/main.js (0.157331ms)
+✔ resolves ordinary static URL /brand/logo.png (0.081478ms)
+✔ resolves ordinary static URL /favicon.ico (0.081674ms)
+✔ resolves ordinary static URL / (0.047703ms)
+✔ env initializer creates a random secret and never overwrites existing settings (95.391428ms)
+ℹ tests 33
+ℹ suites 0
+ℹ pass 33
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 330.056213

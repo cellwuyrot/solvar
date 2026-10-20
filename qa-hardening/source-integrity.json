@@ -1,0 +1,77 @@
+{
+  "contentChecks": {
+    "packages/web/src/shared/catalog-seed.json": {
+      "unchanged": true,
+      "originalSha256": "c8016a67d574458657e2a050c1afb4383a58e7969c536913922b78210a02627f",
+      "currentSha256": "c8016a67d574458657e2a050c1afb4383a58e7969c536913922b78210a02627f"
+    },
+    "packages/web/src/shared/shop.ts": {
+      "unchanged": false,
+      "originalSha256": "40273abeb5cd7bf2405495b319e51357c6ed5e8d87b4b71d8c3f9c06f729a693",
+      "currentSha256": "abecc965fecaea1c9d9c7bcbc178d1290c9683dbe66df7e2d68dd3bb5e9ddcfa"
+    },
+    "packages/web/src/web/pages/index.tsx": {
+      "unchanged": true,
+      "originalSha256": "beef1119d97014b58ff77ac2ecd8f8870d6e9253a9476295180e14690dd32022",
+      "currentSha256": "beef1119d97014b58ff77ac2ecd8f8870d6e9253a9476295180e14690dd32022"
+    },
+    "packages/web/src/web/pages/product.tsx": {
+      "unchanged": true,
+      "originalSha256": "8d8cf318d4beb92b2c85d739bd612f0711ec686dd3837a403bfdaf9700b69613",
+      "currentSha256": "8d8cf318d4beb92b2c85d739bd612f0711ec686dd3837a403bfdaf9700b69613"
+    },
+    "packages/web/src/web/components/cart-drawer.tsx": {
+      "unchanged": true,
+      "originalSha256": "525706cea9a8f41a650d6bf67d6eeb795129b6e7eab6c7790cccf219406bfed3",
+      "currentSha256": "525706cea9a8f41a650d6bf67d6eeb795129b6e7eab6c7790cccf219406bfed3"
+    },
+    "packages/web/src/web/components/hero.tsx": {
+      "unchanged": true,
+      "originalSha256": "279845442523272f16c1318bce79ce4b2da68b42c44f876a48d31c3cee2b656b",
+      "currentSha256": "279845442523272f16c1318bce79ce4b2da68b42c44f876a48d31c3cee2b656b"
+    },
+    "initialSettings texts unchanged": true
+  },
+  "changedOriginalFiles": [
+    ".env.template",
+    "CHANGELOG-TELEGRAM.md",
+    "README.md",
+    "SOLVAR-REWORK-REPORT.md",
+    "TECHNICAL-FIXES.md",
+    "TECHNICAL-REPORT-RU.md",
+    "TELEGRAM-ORDERS.md",
+    "TEST-RESULTS-V2.md",
+    "UPDATES-V2.md",
+    "WINDOWS-START.md",
+    "deploy/nginx-solvar.conf",
+    "deploy/solvar.service",
+    "package.json",
+    "packages/web/package.json",
+    "packages/web/src/__server.ts",
+    "packages/web/src/api/__core/app.ts",
+    "packages/web/src/api/auth.ts",
+    "packages/web/src/api/database/__client.ts",
+    "packages/web/src/api/database/schema.ts",
+    "packages/web/src/api/index.ts",
+    "packages/web/src/api/middleware/admin.ts",
+    "packages/web/src/api/routes/orders.ts",
+    "packages/web/src/api/routes/shop.ts",
+    "packages/web/src/api/services/order-notifications.ts",
+    "packages/web/src/api/services/order-persistence.ts",
+    "packages/web/src/api/services/order-security.ts",
+    "packages/web/src/api/services/orders.ts",
+    "packages/web/src/api/services/page-seo.ts",
+    "packages/web/src/shared/shop.ts",
+    "packages/web/src/web/app.tsx",
+    "packages/web/src/web/components/admin-orders.tsx",
+    "packages/web/src/web/pages/admin.tsx",
+    "packages/web/src/web/queries/shop.ts",
+    "packages/web/src/web/styles.css",
+    "packages/web/tools/backup-local.ts",
+    "packages/web/tools/seed.ts",
+    "packages/web/tools/setup-orders.ts",
+    "packages/web/tools/test-orders.ts",
+    "packages/web/tools/test-upgrade.ts",
+    "packages/web/tools/verify.ts"
+  ]
+}

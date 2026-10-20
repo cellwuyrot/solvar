@@ -1,0 +1,24 @@
+[Unit]
+Description=SOLVAR web and order notification worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=solvar
+Group=solvar
+WorkingDirectory=/srv/solvar/packages/web
+ExecStart=/usr/local/bin/bun --env-file=/srv/solvar/.env /srv/solvar/packages/web/src/__server.ts
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/solvar /var/backups/solvar
+Environment=XDG_CACHE_HOME=/var/lib/solvar/cache
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

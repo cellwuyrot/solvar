@@ -1,0 +1,21 @@
+
+> typecheck
+> turbo typecheck
+
+• turbo 2.9.18
+
+   • Packages in scope: @template/desktop, @template/mobile, @template/web
+   • Running typecheck in 3 packages
+   • Remote caching disabled
+
+@template/desktop:typecheck: cache hit, replaying logs 4f751df00aa8de46
+@template/desktop:typecheck: $ tsc --noEmit
+@template/web:typecheck: cache miss, executing 5899f53c92d2f752
+@template/web:typecheck: $ tsc -b
+@template/mobile:typecheck: cache miss, executing c66b857d7e2292c6
+@template/mobile:typecheck: $ tsc --noEmit
+
+ Tasks:    3 successful, 3 total
+Cached:    1 cached, 3 total
+  Time:    5.64s 
+

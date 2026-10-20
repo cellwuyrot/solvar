@@ -1,0 +1,36 @@
+
+> test:technical
+> node --test tools/tests/technical.test.mjs
+
+✔ POSIX: allows /app/dist/assets/main.js (0.968962ms)
+✔ POSIX: allows /app/dist/brand/logo.png (0.153671ms)
+✔ POSIX: allows /app/dist (0.1015ms)
+✔ POSIX: rejects /app/dist-other/main.js (0.112695ms)
+✔ POSIX: rejects /app/.env (0.100705ms)
+✔ POSIX: rejects /app (0.9612ms)
+✔ Windows: allows C:\SOLVAR\dist\assets\main.js (0.15036ms)
+✔ Windows: allows C:\SOLVAR\dist\brand\logo.png (0.103321ms)
+✔ Windows: allows C:\SOLVAR\dist (0.096413ms)
+✔ Windows: rejects C:\SOLVAR\dist-other\a.js (0.211045ms)
+✔ Windows: rejects C:\SOLVAR\.env (0.115237ms)
+✔ Windows: rejects D:\other\a.js (0.084578ms)
+✔ rejects unsafe URL "/../.env" (0.157972ms)
+✔ rejects unsafe URL "/../../secrets" (0.063788ms)
+✔ rejects unsafe URL "/assets/../../../.env" (0.069491ms)
+✔ rejects unsafe URL "/..\\secret" (0.042242ms)
+✔ rejects unsafe URL "/assets\\file.js" (0.036877ms)
+✔ rejects unsafe URL "/a\u0000b" (0.055531ms)
+✔ rejects unsafe URL "assets/file.js" (0.039118ms)
+✔ resolves ordinary static URL /assets/main.js (0.165578ms)
+✔ resolves ordinary static URL /brand/logo.png (0.056124ms)
+✔ resolves ordinary static URL /favicon.ico (0.049518ms)
+✔ resolves ordinary static URL / (0.042823ms)
+✔ env initializer creates a random secret and never overwrites existing settings (59.277972ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 24
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 174.499108

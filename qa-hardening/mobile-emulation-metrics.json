@@ -1,0 +1,24 @@
+{
+  "environment": "Chromium desktop emulating 390x844, CPU4x, latency150ms, download1.6Mbps, single cold run; NOT real mobile hardware",
+  "lcpMs": 2816,
+  "domContentLoadedMs": 2470,
+  "jsEncodedBytes": 303573,
+  "jsResources": [
+    {
+      "name": "index-D82i3OJt.js",
+      "bytes": 79453,
+      "initiator": "script"
+    },
+    {
+      "name": "auth-vendor-Dan9Ou5I.js",
+      "bytes": 37643,
+      "initiator": "other"
+    },
+    {
+      "name": "react-vendor-BQ1XmNTP.js",
+      "bytes": 186477,
+      "initiator": "other"
+    }
+  ],
+  "horizontalOverflow": false
+}
