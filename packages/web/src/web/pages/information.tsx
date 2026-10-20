@@ -1,3 +1,4 @@
+import { VisitForm } from "../components/visit-form";
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
@@ -27,7 +28,7 @@ export default function Information() {
       {!valid ? <><h1>Страница не найдена</h1><a className="btn btn-outline" href="/">На главную</a></> : q.isPending ? <p role="status">Загрузка…</p> : q.isError ? <div role="alert"><h1>Не удалось загрузить информацию</h1><button className="btn btn-outline mt-5" onClick={() => q.refetch()}>Повторить</button></div> : isPrivacy ? <><h1>Политика конфиденциальности</h1><div className="information-document">{s?.privacy}</div></> : <section id="contacts"><h1>{s?.name || "SOLVAR"}</h1><h2>Контакты</h2>
         {!s?.company && !s?.email && !s?.phone && !s?.address && <p className="text-muted">Контактная информация пока не указана.</p>}
         <dl className="information-details">{s?.company && <><dt>Организация</dt><dd>{s.company}</dd></>}{s?.address && <><dt>Адрес</dt><dd>{s.address}</dd></>}{s?.hours && <><dt>Время работы</dt><dd>{s.hours}</dd></>}{s?.phone && <><dt>Телефон</dt><dd><a href={`tel:${s.phone.replace(/[^+\d]/g, "")}`}>{s.phone}</a></dd></>}{s?.email && <><dt>Email</dt><dd><a href={`mailto:${s.email}`}>{s.email}</a></dd></>}{s?.inn && <><dt>ИНН</dt><dd>{s.inn}</dd></>}{s?.ogrn && <><dt>ОГРН / ОГРНИП</dt><dd>{s.ogrn}</dd></>}</dl>
-      </section>}
+      <VisitForm /></section>}
     </main>
     <footer className="information-footer"><span>© {new Date().getFullYear()} {s?.name || "SOLVAR"}</span><a href="/admin">Управление</a></footer>
   </div>;

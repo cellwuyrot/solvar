@@ -8,6 +8,9 @@ import { db } from "./database";
 import * as schema from "./database/schema";
 import { eq } from "drizzle-orm";
 import { startNotificationWorker } from "./services/order-notifications";
+import { managerManagement } from "./routes/managers";
+import { visitPublic, visitStaff, visitOwner } from "./routes/visits";
+import { startVisitWorker } from "./services/visits";
 import { auth } from "./auth";
 
 // API features are oRPC procedures, one file per feature in ./routes/,
@@ -18,8 +21,11 @@ import { auth } from "./auth";
 // Patterns and examples: skills/app/references/api.md
 export const router = {
   ping,
+  visits: visitPublic,
+  staff: visitStaff,
+  visitOwner,
   shop: { ...shop, ...orderPublic },
-  management: { ...management, ...orderManagement, ...adminMemberManagement },
+  management: { ...management, ...orderManagement, ...adminMemberManagement, ...managerManagement },
 };
 
 export type AppRouter = typeof router;
@@ -37,6 +43,9 @@ app.get("/api/ready", async c => {
     await db.select().from(schema.orderRateLimits).limit(1);
     await db.select().from(schema.adminMembers).limit(1);
     await db.select().from(schema.adminEvents).limit(1);
+    await db.select().from(schema.visits).limit(1);
+    await db.select().from(schema.visitConfig).limit(1);
+    await db.select().from(schema.visitEvents).limit(1);
     const { getSettings } = await import("./services/orders");
     await getSettings();
     const owners = await db.select().from(schema.adminMembers).where(eq(schema.adminMembers.role, "owner"));
@@ -45,6 +54,7 @@ app.get("/api/ready", async c => {
   } catch { return c.json({ status: "unavailable" }, 503); }
 });
 startNotificationWorker();
+startVisitWorker();
 app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 // Rare plain-HTTP endpoints (webhooks, streaming, the Better Auth handler)
 // register here with full paths, e.g. app.post("/api/webhooks/example", ...)

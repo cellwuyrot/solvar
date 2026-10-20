@@ -54,3 +54,14 @@ export const adminMembers = sqliteTable("shop_admin_members", {
 export const adminEvents = sqliteTable("shop_admin_events", {
   id: text("id").primaryKey(), actorId: text("actor_id").notNull(), targetId: text("target_id").notNull(), action: text("action").notNull(), at: text("at").notNull(),
 });
+
+// Visit appointments are independent of the disabled commerce/order subsystem.
+export const visitConfig = sqliteTable("visit_config", { id: text("id").primaryKey(), data: text("data").notNull() });
+export const visits = sqliteTable("visit_requests", {
+  id: text("id").primaryKey(), requestHash: text("request_hash").notNull(), createdAt: text("created_at").notNull(),
+  name: text("name").notNull(), phone: text("phone").notNull(), preferredAt: text("preferred_at").notNull(),
+  status: text("status").notNull().default("new"), managerId: text("manager_id").notNull().default(""), appointmentAt: text("appointment_at").notNull().default(""),
+  version: integer("version").notNull().default(0), policyHash: text("policy_hash").notNull(), policyText: text("policy_text").notNull(),
+  notification: text("notification").notNull().default("disabled"), attempts: integer("attempts").notNull().default(0), retryAt: integer("retry_at").notNull().default(0),
+}, t => [index("visit_created_idx").on(t.createdAt, t.id)]);
+export const visitEvents = sqliteTable("visit_events", { id: text("id").primaryKey(), visitId: text("visit_id").notNull(), actorId: text("actor_id").notNull(), action: text("action").notNull(), at: text("at").notNull() });

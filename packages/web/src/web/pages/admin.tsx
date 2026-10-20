@@ -7,7 +7,6 @@ import {
   ImagePlus,
   Gem,
   RotateCcw,
-  LayoutGrid,
   LogOut,
   Package,
   Plus,
@@ -41,6 +40,8 @@ import {
 import { Modal } from "../components/modal";
 import { Packshot } from "../components/product-card";
 import { AdminMembers } from "../components/admin-members";
+import { AdminVisits, StaffPassword } from "../components/admin-visits";
+import { ManagerMembers } from "../components/manager-members";
 import { AdminOrders } from "../components/admin-orders";
 function errorText(error: unknown) {
   return error instanceof Error ? error.message : "Не удалось выполнить действие";
@@ -55,10 +56,12 @@ export default function Admin() {
       </div>
     );
   if (me.isError) return <Login onDone={() => cache.invalidateQueries()} />;
+  if (me.data.role === "manager") return <div className="admin-main"><div className="flex flex-wrap justify-between gap-4 mb-6"><h1 className="text-3xl">Записи на визит</h1><button className="btn btn-outline" onClick={async () => { await authClient.signOut(); clearToken(); cache.clear(); window.location.assign("/admin"); }}>Выйти</button></div><p className="mb-4">{me.data.email}</p><AdminVisits role="manager" userId={me.data.id} /><StaffPassword /></div>;
   return (
     <Dashboard
       email={me.data.email}
       role={me.data.role}
+      userId={me.data.id}
       onLogout={async () => {
         await authClient.signOut();
         clearToken();
@@ -99,7 +102,7 @@ function Login({ onDone }: { onDone: () => void }) {
       >
         <ShieldCheck size={26} className="text-gold" />
         <h1 className="serif mt-4 text-4xl">Вход в управление</h1>
-        <p className="mb-6 mt-2 text-xs text-muted">Только для администратора магазина.</p>
+        <p className="mb-6 mt-2 text-xs text-muted">Только для сотрудников магазина.</p>
         <label className="field-label">
           Email
           <input
@@ -136,9 +139,9 @@ function Login({ onDone }: { onDone: () => void }) {
     </div>
   );
 }
-function Dashboard({ email, role, onLogout }: { email: string; role: "owner" | "admin"; onLogout: () => void }) {
+function Dashboard({ email, role, userId, onLogout }: { email: string; userId: string; role: "owner" | "admin"; onLogout: () => void }) {
   const q = useManagement();
-  const [tab, setTab] = useState<"products" | "sets" | "brand" | "settings" | "orders" | "members">("products");
+  const [tab, setTab] = useState<"products" | "sets" | "brand" | "settings" | "orders" | "members" | "visits">("visits");
   const [search, setSearch] = useState("");
   const [country, setCountry] = useState("");
   const [edit, setEdit] = useState<Product | null>(null);
@@ -175,11 +178,9 @@ function Dashboard({ email, role, onLogout }: { email: string; role: "owner" | "
         <p className="mb-8 mt-2 text-xs text-muted">ПАНЕЛЬ УПРАВЛЕНИЯ</p>
         {(
           [
-            ["products", "Товары", LayoutGrid],
-            ["sets", "Наборы", Package],
             ["brand", "Логотип", Gem],
             ["settings", "Настройки", SettingsIcon],
-            ["orders", "Заявки / Telegram", Package],
+            ["visits", "Визиты / Telegram", Package],
           ] as const
         ).map(([id, title, Icon]) => (
           <button
@@ -195,7 +196,7 @@ function Dashboard({ email, role, onLogout }: { email: string; role: "owner" | "
             {title}
           </button>
         ))}
-        {role === "owner" && <button className={`admin-tab ${tab === "members" ? "active" : ""}`} onClick={() => setTab("members")}>Администраторы</button>}
+        {role === "owner" && <button className={`admin-tab ${tab === "members" ? "active" : ""}`} onClick={() => setTab("members")}>Команда</button>}
         <div className="mt-6 border-t border-[#eee] pt-5 md:absolute md:bottom-6 md:left-5 md:right-5">
           <p className="mb-4 truncate text-xs text-muted">{email}</p>
           <Link href="/" className="flex items-center gap-2 text-xs">
@@ -212,14 +213,14 @@ function Dashboard({ email, role, onLogout }: { email: string; role: "owner" | "
           <div>
             <p className="eyebrow mb-1">УПРАВЛЕНИЕ</p>
             <h1 className="serif text-4xl">
-              {tab === "members" ? "Администраторы" : tab === "orders" ? "Заявки и Telegram" : tab === "brand" ? "Логотип и фавикон" : tab === "settings"
+              {tab === "visits" ? "Записи на визит" : tab === "members" ? "Команда" : tab === "orders" ? "Заявки и Telegram" : tab === "brand" ? "Логотип и фавикон" : tab === "settings"
                 ? "Настройки магазина"
                 : tab === "sets"
                   ? "Авторские наборы"
                   : "Каталог товаров"}
             </h1>
             <p className="mt-2 text-sm text-muted">
-              Изменения сохраняются на сервере и появляются на витрине.
+              Информационный сайт и запись на посещение. Торговые функции отключены.
             </p>
           </div>
           {(tab === "products" || tab === "sets") && (
@@ -236,7 +237,7 @@ function Dashboard({ email, role, onLogout }: { email: string; role: "owner" | "
             Не удалось загрузить данные: {errorText(q.error)}{" "}
             <button onClick={() => q.refetch()}>Повторить</button>
           </p>
-        ) : tab === "members" && role === "owner" ? (<AdminMembers />) : tab === "orders" ? (
+        ) : tab === "visits" ? (<><AdminVisits role={role} userId={userId} /><StaffPassword /></>) : tab === "members" && role === "owner" ? (<><ManagerMembers /><AdminMembers /></>) : tab === "orders" ? (
           <AdminOrders />
         ) : tab === "brand" ? (
           <BrandEditor initial={q.data!.settings} />

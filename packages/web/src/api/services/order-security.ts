@@ -59,8 +59,8 @@ export function ingressAllowed(ip: string, bucket: string, max: number, windowMs
 }
 export const captchaRequired = () => process.env.ORDER_CAPTCHA_REQUIRED === "true" || (process.env.NODE_ENV === "production" && process.env.ORDER_CAPTCHA_REQUIRED !== "false");
 export const captchaConfigured = () => !!process.env.TURNSTILE_SITE_KEY && !!process.env.TURNSTILE_SECRET_KEY;
-export async function verifyCaptcha(token: string, ip: string) {
-  if (!captchaRequired()) return;
+export async function verifyCaptcha(token: string, ip: string, action = "order", required = captchaRequired()) {
+  if (!required) return;
   if (!captchaConfigured() || !token) throw new ORPCError("BAD_REQUEST", { message: "Подтвердите проверку от роботов" });
   let result: { success?: boolean; hostname?: string; action?: string };
   try {
@@ -72,6 +72,6 @@ export async function verifyCaptcha(token: string, ip: string) {
     result = await response.json() as typeof result;
   } catch { throw new ORPCError("SERVICE_UNAVAILABLE", { message: "Проверка от роботов временно недоступна" }); }
   const hostname = new URL(process.env.WEBSITE_URL!).hostname;
-  if (!result.success || result.hostname !== hostname || result.action !== "order")
+  if (!result.success || result.hostname !== hostname || result.action !== action)
     throw new ORPCError("BAD_REQUEST", { message: "Проверка от роботов не пройдена. Повторите её." });
 }
