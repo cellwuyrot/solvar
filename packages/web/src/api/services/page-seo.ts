@@ -48,12 +48,16 @@ export async function renderLegacyPageHtml(html: string, pathname: string, origi
 
 async function renderInformationHtml(html: string, pathname: string, origin: string) {
   const { settings } = await pageCatalog();
-  const valid = ["/", "/info/privacy", "/admin", "/admin/reset-password"].includes(pathname);
+  const valid = ["/", "/catalog", "/info/privacy", "/admin", "/admin/reset-password"].includes(pathname);
   const isAdmin = pathname.startsWith("/admin");
-  const title = !valid ? "Страница не найдена" : pathname === "/info/privacy" ? "Политика конфиденциальности" : isAdmin ? "Управление" : settings.name;
+  const title = !valid ? "Страница не найдена" : pathname === "/info/privacy" ? "Политика конфиденциальности" : pathname === "/catalog" ? "Информационный каталог" : isAdmin ? "Управление" : settings.name;
   const h = escapeHtml, noindex = isAdmin || !valid;
-  const body = `<main><h1>${h(title)}</h1>${pathname === "/info/privacy" ? `<p>${h(settings.privacy)}</p>` : pathname === "/" ? `<p>${h(settings.company)}</p><p>${h(settings.address)}</p><p>${h(settings.phone)}</p><p>${h(settings.email)}</p>` : ""}</main>`;
-  const head = `<title>${h(title)}</title><meta name="description" content="${h(title)}" /><meta name="robots" content="${noindex ? "noindex,nofollow" : "index,follow"}" /><link rel="canonical" href="${h(origin + pathname)}" /><meta property="og:title" content="${h(title)}" /><meta property="og:type" content="website" />`;
+  const crumbs = pathname === "/" ? [] : [{ name: "Главная", path: "/" }, { name: title, path: pathname }];
+  const breadcrumbHtml = crumbs.length ? `<nav aria-label="Хлебные крошки"><ol>${crumbs.map((crumb, index) => `<li>${index === crumbs.length - 1 ? `<span aria-current="page">${h(crumb.name)}</span>` : `<a href="${h(crumb.path)}">${h(crumb.name)}</a>`}</li>`).join("")}</ol></nav>` : "";
+  const body = `<main>${breadcrumbHtml}<h1>${h(title)}</h1>${pathname === "/info/privacy" ? `<p>${h(settings.privacy)}</p>` : pathname === "/catalog" ? `<p>Информационный каталог. Заказы и резервирование через сайт недоступны.</p>` : pathname === "/" ? `<p>${h(settings.company)}</p><p>${h(settings.address)}</p><p>${h(settings.phone)}</p><p>${h(settings.email)}</p>` : ""}</main>`;
+  const structured = [{ "@context": "https://schema.org", "@type": "WebSite", name: settings.name, url: origin + "/" }, ...(crumbs.length ? [{ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: crumbs.map((crumb, i) => ({ "@type": "ListItem", position: i + 1, name: crumb.name, item: origin + crumb.path })) }] : [])];
+  const jsonld = JSON.stringify(structured).replace(/</g, "\\u003c");
+  const head = `<script type="application/ld+json" id="seo-ssr-jsonld">${jsonld}</script><title>${h(title)}</title><meta name="description" content="${h(title)}" /><meta name="robots" content="${noindex ? "noindex,nofollow" : "index,follow"}" /><link rel="canonical" href="${h(origin + pathname)}" /><meta property="og:title" content="${h(title)}" /><meta property="og:type" content="website" />`;
   const patched = html.replace(/<title>[\s\S]*?<\/title>/, "").replace(/<meta (?:name="(?:description|robots)"|property="og:[^"]+")[^>]*>/g, "")
     .replace("</head>", head + "</head>").replace('<div id="root"></div>', `<div id="root">${body}</div>`);
   return { html: patched, status: valid ? 200 : 404, noindex };

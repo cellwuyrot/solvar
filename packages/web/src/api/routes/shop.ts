@@ -1,4 +1,3 @@
-import { requireCommerce } from "../services/commerce-policy";
 import { z } from "zod";
 import { eq, sql } from "drizzle-orm";
 import { ORPCError } from "@orpc/server";
@@ -33,7 +32,7 @@ export const shop = {
       address: s.address, hours: s.hours, privacy: s.privacy, logoMark: s.logoMark, favicon: s.favicon };
   }),
   catalog: base.handler(async () => ({
-    products: [] as Product[], // Do not expose even historically active rows in information mode.
+    products: (await list()).filter((item) => item.active), // Public informational catalog only; no ordering endpoints.
     settings: { ...initialSettings, name: (await settings()).name, tagline: "", heroTitle: "", heroText: "", about: "", privacy: "", delivery: "", payment: "", returns: "", offer: "" },
     ordersEnabled: await ordersAvailable(),
     captchaSiteKey: captchaRequired() ? process.env.TURNSTILE_SITE_KEY || "" : "",
@@ -43,7 +42,6 @@ export const management = {
   me: admin.handler(({ context }) => ({ email: context.user.email, role: context.adminRole })),
   catalog: admin.handler(async () => ({ products: await list(), settings: await settings() })),
   saveProduct: admin.input(productSchema).handler(async ({ input }) => {
-    if (input.active) requireCommerce();
     if (input.active && input.price <= 0)
       throw new ORPCError("BAD_REQUEST", { message: "Перед публикацией укажите подтверждённую цену больше нуля" });
     if (
