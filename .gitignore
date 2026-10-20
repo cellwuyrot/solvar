@@ -80,3 +80,7 @@ packages/mobile/scripts/*
 
 # Local backup artefacts (catalog migration)
 backups/
+
+# Host-local process config and visit test output
+/solvar.config.cjs
+/qa-visits/

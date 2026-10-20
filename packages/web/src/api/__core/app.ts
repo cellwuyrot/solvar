@@ -39,12 +39,13 @@ export function createApp(router: Router<Record<never, never>, RpcContext>) {
     c.header("Cache-Control", "no-store");
     if (process.env.NODE_ENV === "production" && process.env.WEBSITE_URL?.startsWith("https://")) c.header("Strict-Transport-Security", "max-age=31536000");
     const ip = c.env?.clientIp || "unknown";
-    const order = c.req.path.includes("createOrder") || c.req.path === "/api/order-session";
+    const order = c.req.path.includes("createOrder") || c.req.path === "/api/rpc/visits/create" || c.req.path === "/api/order-session";
     if (!ingressAllowed(ip, order ? "order" : "api", order ? 60 : 300)) return c.json({ message: "Rate limit exceeded" }, 429, { "Retry-After": "60" });
     c.header("X-Content-Type-Options", "nosniff"); c.header("X-Frame-Options", "DENY"); c.header("Referrer-Policy", "strict-origin-when-cross-origin");
     await next();
   });
   app.use("/api/auth/*", bodyLimit({ maxSize: 16384, onError: c => c.json({ message: "Authentication payload too large" }, 413) }));
+  app.use("/api/rpc/visits/create", bodyLimit({ maxSize: 8192, onError: c => c.json({ message: "Visit payload too large" }, 413) }));
   app.use("/api/rpc/shop/createOrder", bodyLimit({ maxSize: 20000, onError: c => c.json({ message: "Order payload too large" }, 413) }));
   app.use("*", bodyLimit({ maxSize: 3200000, onError: c => c.json({ message: "Payload too large" }, 413) }));
   app.use(

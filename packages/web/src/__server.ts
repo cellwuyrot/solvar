@@ -14,7 +14,7 @@ Bun.serve({ port, hostname: process.env.HOST || "127.0.0.1", maxRequestBodySize:
   try {
     if (url.pathname.startsWith("/api")) return app.fetch(request, { clientIp: resolveClientIp(request.headers, server.requestIP(request)?.address) });
     if (!["GET", "HEAD"].includes(request.method)) return new Response("Method not allowed", { status: 405, headers });
-    const common = { ...headers, "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'", "Permissions-Policy": "camera=(), microphone=(), geolocation=()", ...(process.env.NODE_ENV === "production" && origin.startsWith("https://") ? { "Strict-Transport-Security": "max-age=31536000" } : {}) };
+    const common = { ...headers, "Content-Security-Policy": "default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'", "Permissions-Policy": "camera=(), microphone=(), geolocation=()", ...(process.env.NODE_ENV === "production" && origin.startsWith("https://") ? { "Strict-Transport-Security": "max-age=31536000" } : {}) };
     if (url.pathname === "/robots.txt") return new Response(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\nSitemap: ${origin}/sitemap.xml\n`, { headers: { ...common, "Content-Type": "text/plain; charset=utf-8" } });
     if (url.pathname === "/sitemap.xml") {
       await pageCatalog();

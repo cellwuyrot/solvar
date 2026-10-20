@@ -11,7 +11,7 @@ import { databaseRetry } from "../services/database-retry";
 import { persistentRate } from "../services/order-security";
 import { smtpConfigured } from "../services/mail";
 const secretSchema = z.object({ ownerPassword: z.string().min(1).max(128) });
-async function reauthenticate(userId: string, password: string) {
+export async function reauthenticate(userId: string, password: string) {
   await persistentRate("admin-reauth:" + userId, 5, 15 * 60000);
   const [account] = await db.select({ password: s.account.password }).from(s.account).where(and(eq(s.account.userId, userId), eq(s.account.providerId, "credential")));
   if (!account?.password || !await verifyPassword({ hash: account.password, password })) throw new ORPCError("FORBIDDEN", { message: "Не удалось подтвердить пароль владельца" });

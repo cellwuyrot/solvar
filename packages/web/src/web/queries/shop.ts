@@ -7,7 +7,7 @@ export function useManagement(enabled = true) {
   return useQuery(orpc.management.catalog.queryOptions({ enabled, retry: false }));
 }
 export function useAdmin() {
-  return useQuery(orpc.management.me.queryOptions({ retry: false }));
+  return useQuery(orpc.staff.me.queryOptions({ retry: false }));
 }
 export function useSaveProduct() {
   const q = useQueryClient();
