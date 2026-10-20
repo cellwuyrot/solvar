@@ -36,6 +36,8 @@ if (!found.length) {
   });
   console.log("Admin created");
 } else console.log("Existing admin retained");
+// Reservation intake is on by default (owner can switch it off in admin). Notification channels stay optional.
+await db.insert(s.orderIntegration).values({ id: "main", data: JSON.stringify({ enabled: true, chatId: "", telegramEnabled: true, emailEnabled: false, notifyEmail: "", documentsReady: true }) }).onConflictDoNothing();
 console.log(`SOLVAR starter catalogue seeded: ${seed.length} hidden templates; settings ready`);
 
 const [owner] = await db.select().from(s.user).where(eq(s.user.email, email));

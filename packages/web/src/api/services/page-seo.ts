@@ -1,64 +1,88 @@
 import { eq } from "drizzle-orm";
 import { db } from "../database";
 import * as s from "../database/schema";
-import { settingsSchema, SECTIONS, type Product, type Settings } from "../../shared/shop";
+import { productSchema, settingsSchema, SECTIONS, type Product, type Settings } from "../../shared/shop";
+
 let cache: { at: number; products: Product[]; settings: Settings } | undefined;
 export function invalidatePageCache() { cache = undefined; }
+
+/** Published products and public settings, cached for 30 s and dropped on every admin save. */
 export async function pageCatalog() {
   if (!cache || Date.now() - cache.at > 30000) {
     const [settings] = await db.select().from(s.settings).where(eq(s.settings.id, "main"));
     if (!settings) throw new Error("Catalog not initialized");
-    const products: Product[] = []; // Do not expose legacy active rows in information mode.
+    const products = (await db.select().from(s.products))
+      .map(row => productSchema.parse(JSON.parse(row.data)))
+      .filter(p => p.active)
+      .sort((a, b) => a.sort - b.sort);
     cache = { at: Date.now(), products, settings: settingsSchema.parse(JSON.parse(settings.data)) };
   }
   return cache;
 }
+
 export const escapeHtml = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-export async function renderPageHtml(html: string, pathname: string, origin: string) {
-  return renderInformationHtml(html, pathname, origin);
-}
-export async function renderLegacyPageHtml(html: string, pathname: string, origin: string) {
-  const catalog = await pageCatalog(), settings = catalog.settings;
-  const info: Record<string, string> = { delivery: "Доставка", payment: "Оплата", returns: "Возврат", privacy: "Политика конфиденциальности", offer: "Публичная оферта" };
-  const collection = /^\/collections\/([^/]+)\/?$/.exec(pathname)?.[1];
-  const productId = /^\/products\/([^/]+)\/?$/.exec(pathname)?.[1];
-  const product = productId ? catalog.products.find(p => p.id === productId) : undefined;
-  const section = collection ? SECTIONS[collection as keyof typeof SECTIONS] : undefined;
-  const slug = /^\/info\/([^/]+)\/?$/.exec(pathname)?.[1];
-  const valid = pathname === "/" || pathname === "/admin" || !!section || !!product || !!(slug && info[slug]);
-  const title = product?.name || section?.title || (slug && info[slug]) || (pathname === "/admin" ? "Управление магазином" : valid ? "Сигары, табак и аксессуары" : "Страница не найдена");
-  const description = (product?.description || product?.sub || section?.desc || settings.heroText || settings.tagline).slice(0, 300);
-  const canonical = origin + pathname.replace(/\/$/, "") + (pathname === "/" ? "/" : "");
-  const noindex = !valid || pathname === "/admin";
-  const h = escapeHtml;
-  let body = `<h1>${h(title)}</h1><p>${h(description)}</p>`;
-  const products = section ? catalog.products.filter(p => p.section === collection) : catalog.products;
-  if (product) body += `<p>${h(product.weight)} · ${h(String(product.price))} ₽</p>` + [["Материалы и состав", product.ingredients], ["Характеристики", product.allergens], ["Условия хранения", product.storage], ["Коллекция / производитель", product.shelfLife]].filter(v => v[1]).map(([label, text]) => `<h2>${label}</h2><p>${h(text)}</p>`).join("");
-  else if (slug && info[slug]) body = `<h1>${h(info[slug])}</h1><p>${h(String(settings[slug as keyof Settings] || ""))}</p>`;
-  else if (valid && pathname !== "/admin") body += `<ul>${products.map(p => `<li><a href="/products/${encodeURIComponent(p.id)}">${h(p.name)}</a> — ${h(String(p.price))} ₽</li>`).join("")}</ul>`;
-  const offer = product ? { "@type": "Offer", priceCurrency: "RUB", price: product.price, url: canonical,
-    ...(product.availability === "in_stock" ? { availability: "https://schema.org/InStock" } : product.availability === "out_of_stock" ? { availability: "https://schema.org/OutOfStock" } : {}) } : undefined;
-  const data = product ? { "@context": "https://schema.org", "@type": "Product", name: product.name, description, sku: product.id, offers: offer }
-    : { "@context": "https://schema.org", "@type": "WebSite", name: settings.name, url: origin + "/", description };
-  const head = `<title>${h(title)} — ${h(settings.name)}</title>\n<meta name="description" content="${h(description)}" />\n<meta name="robots" content="${noindex ? "noindex,nofollow" : "index,follow"}" />\n<link rel="canonical" href="${h(canonical)}" />\n<meta property="og:title" content="${h(title + " — " + settings.name)}" />\n<meta property="og:description" content="${h(description)}" />\n<meta property="og:url" content="${h(canonical)}" />\n<meta property="og:type" content="${product ? "product" : "website"}" />\n<meta property="og:image" content="${h(origin)}/og-image.png" />\n<script id="seo-jsonld" type="application/ld+json">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>`;
-  const patched = html.replace(/<title>[\s\S]*?<\/title>/, "").replace(/<meta (?:name="(?:description|robots)"|property="og:[^"]+")[^>]*>/g, "")
-    .replace("</head>", head + "\n</head>").replace('<div id="root"></div>', `<div id="root">${body}</div>`);
-  return { html: patched, status: valid ? 200 : 404, noindex };
+
+const INFO_PAGES: Record<string, string> = { delivery: "Доставка", payment: "Оплата", returns: "Возврат", privacy: "Политика конфиденциальности", offer: "Публичная оферта" };
+const isSection = (slug: string): slug is keyof typeof SECTIONS => Object.prototype.hasOwnProperty.call(SECTIONS, slug);
+
+/** Indexable public paths: home, non-empty categories, published products without noindex, info pages. */
+export async function sitemapPaths() {
+  const { products } = await pageCatalog();
+  const sections = [...new Set(products.map(p => p.section))].filter(isSection);
+  return [
+    "/",
+    ...sections.map(slug => `/collections/${slug}`),
+    ...products.filter(p => !p.seoNoindex).map(p => `/products/${encodeURIComponent(p.id)}`),
+    ...Object.keys(INFO_PAGES).map(slug => `/info/${slug}`),
+  ];
 }
 
-async function renderInformationHtml(html: string, pathname: string, origin: string) {
-  const { settings } = await pageCatalog();
-  const valid = ["/", "/catalog", "/info/privacy", "/admin", "/admin/reset-password"].includes(pathname);
-  const isAdmin = pathname.startsWith("/admin");
-  const title = !valid ? "Страница не найдена" : pathname === "/info/privacy" ? "Политика конфиденциальности" : pathname === "/catalog" ? "Информационный каталог" : isAdmin ? "Управление" : settings.name;
-  const h = escapeHtml, noindex = isAdmin || !valid;
-  const crumbs = pathname === "/" ? [] : [{ name: "Главная", path: "/" }, { name: title, path: pathname }];
-  const breadcrumbHtml = crumbs.length ? `<nav aria-label="Хлебные крошки"><ol>${crumbs.map((crumb, index) => `<li>${index === crumbs.length - 1 ? `<span aria-current="page">${h(crumb.name)}</span>` : `<a href="${h(crumb.path)}">${h(crumb.name)}</a>`}</li>`).join("")}</ol></nav>` : "";
-  const body = `<main>${breadcrumbHtml}<h1>${h(title)}</h1>${pathname === "/info/privacy" ? `<p>${h(settings.privacy)}</p>` : pathname === "/catalog" ? `<p>Информационный каталог. Заказы и резервирование через сайт недоступны.</p>` : pathname === "/" ? `<p>${h(settings.company)}</p><p>${h(settings.address)}</p><p>${h(settings.phone)}</p><p>${h(settings.email)}</p>` : ""}</main>`;
-  const structured = [{ "@context": "https://schema.org", "@type": "WebSite", name: settings.name, url: origin + "/" }, ...(crumbs.length ? [{ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: crumbs.map((crumb, i) => ({ "@type": "ListItem", position: i + 1, name: crumb.name, item: origin + crumb.path })) }] : [])];
-  const jsonld = JSON.stringify(structured).replace(/</g, "\\u003c");
-  const head = `<script type="application/ld+json" id="seo-ssr-jsonld">${jsonld}</script><title>${h(title)}</title><meta name="description" content="${h(title)}" /><meta name="robots" content="${noindex ? "noindex,nofollow" : "index,follow"}" /><link rel="canonical" href="${h(origin + pathname)}" /><meta property="og:title" content="${h(title)}" /><meta property="og:type" content="website" />`;
-  const patched = html.replace(/<title>[\s\S]*?<\/title>/, "").replace(/<meta (?:name="(?:description|robots)"|property="og:[^"]+")[^>]*>/g, "")
-    .replace("</head>", head + "</head>").replace('<div id="root"></div>', `<div id="root">${body}</div>`);
+export async function renderPageHtml(html: string, rawPath: string, origin: string) {
+  const { products, settings } = await pageCatalog();
+  const pathname = rawPath.length > 1 ? rawPath.replace(/\/+$/, "") : rawPath;
+  const collection = /^\/collections\/([^/]+)$/.exec(pathname)?.[1];
+  const productId = /^\/products\/([^/]+)$/.exec(pathname)?.[1];
+  const infoSlug = /^\/info\/([^/]+)$/.exec(pathname)?.[1];
+  const section = collection && isSection(collection) ? SECTIONS[collection] : undefined;
+  const product = productId ? products.find(p => p.id === productId) : undefined;
+  const info = infoSlug && Object.prototype.hasOwnProperty.call(INFO_PAGES, infoSlug) ? INFO_PAGES[infoSlug] : undefined;
+  const isAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
+  const valid = pathname === "/" || isAdmin || !!section || !!product || !!info;
+  const h = escapeHtml;
+
+  const pageName = product?.name || section?.title || info || (isAdmin ? "Управление" : "");
+  const title = product?.seoTitle || (pageName ? `${pageName} — ${settings.name}` : !valid ? `Страница не найдена — ${settings.name}` : `${settings.name} — ${settings.tagline || "каталог"}`);
+  const description = (product?.seoDescription || product?.description || product?.sub || section?.desc || (infoSlug ? String(settings[infoSlug as keyof Settings] || "") : "") || settings.heroText || settings.tagline || settings.name).replace(/\s+/g, " ").trim().slice(0, 300);
+  const canonical = origin + (pathname === "/" ? "/" : pathname);
+  const noindex = !valid || isAdmin || !!product?.seoNoindex;
+
+  const crumbs: { name: string; path: string }[] = pathname === "/" || isAdmin || !valid ? [] : [{ name: "Главная", path: "/" }];
+  if (product) { if (isSection(product.section)) crumbs.push({ name: SECTIONS[product.section].title, path: `/collections/${product.section}` }); crumbs.push({ name: product.name, path: pathname }); }
+  else if (section) crumbs.push({ name: section.title, path: pathname });
+  else if (info) crumbs.push({ name: info, path: pathname });
+  const crumbHtml = crumbs.length ? `<nav aria-label="Хлебные крошки"><ol>${crumbs.map((c, i) => `<li>${i === crumbs.length - 1 ? `<span aria-current="page">${h(c.name)}</span>` : `<a href="${h(c.path)}">${h(c.name)}</a>`}</li>`).join("")}</ol></nav>` : "";
+
+  const sectionProducts = collection ? products.filter(p => p.section === collection) : products;
+  let body = `<main>${crumbHtml}<h1>${h(pageName || settings.name)}</h1>`;
+  if (!valid) body = `<main><h1>Страница не найдена</h1><p><a href="/">На главную</a></p>`;
+  else if (isAdmin) body += "";
+  else if (product) body += `<p>${h(description)}</p><p>${h(product.weight)} · ${h(String(product.price))} ₽</p>` + [["Материалы и состав", product.ingredients], ["Характеристики", product.allergens], ["Условия хранения", product.storage], ["Коллекция / производитель", product.shelfLife]].filter(v => v[1]).map(([label, text]) => `<h2>${label}</h2><p>${h(text)}</p>`).join("");
+  else if (info) body += `<p>${h(String(settings[infoSlug as keyof Settings] || ""))}</p>`;
+  else body += `<p>${h(description)}</p><ul>${sectionProducts.map(p => `<li><a href="/products/${encodeURIComponent(p.id)}">${h(p.name)}</a> — ${h(String(p.price))} ₽</li>`).join("")}</ul>`;
+  body += "</main>";
+
+  const image = product?.image.startsWith("https://") ? product.image : `${origin}/og-image.png`;
+  const structured: unknown[] = [];
+  if (valid && !isAdmin) {
+    if (product) structured.push({ "@context": "https://schema.org", "@type": "Product", name: product.name, description, sku: product.id, image,
+      offers: { "@type": "Offer", priceCurrency: "RUB", price: product.price, url: canonical,
+        ...(product.availability === "in_stock" ? { availability: "https://schema.org/InStock" } : product.availability === "out_of_stock" ? { availability: "https://schema.org/OutOfStock" } : {}) } });
+    else if (pathname === "/") structured.push({ "@context": "https://schema.org", "@type": "WebSite", name: settings.name, url: origin + "/", description });
+    if (crumbs.length) structured.push({ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: crumbs.map((c, i) => ({ "@type": "ListItem", position: i + 1, name: c.name, item: origin + (c.path === "/" ? "/" : c.path) })) });
+  }
+  const jsonld = structured.length ? `\n<script id="seo-jsonld" type="application/ld+json">${JSON.stringify(structured).replace(/</g, "\\u003c")}</script>` : "";
+  const head = `<title>${h(title)}</title>\n<meta name="description" content="${h(description)}" />\n<meta name="robots" content="${noindex ? "noindex,nofollow" : "index,follow"}" />\n<link rel="canonical" href="${h(canonical)}" />\n<meta property="og:title" content="${h(title)}" />\n<meta property="og:description" content="${h(description)}" />\n<meta property="og:url" content="${h(canonical)}" />\n<meta property="og:type" content="${product ? "product" : "website"}" />\n<meta property="og:image" content="${h(image)}" />${jsonld}`;
+  const patched = html.replace(/<title>[\s\S]*?<\/title>/, "").replace(/<meta (?:name="(?:description|robots)"|property="og:[^"]+")[^>]*>/g, "").replace(/<link rel="canonical"[^>]*>/g, "")
+    .replace("</head>", head + "\n</head>").replace('<div id="root"></div>', `<div id="root">${body}</div>`);
   return { html: patched, status: valid ? 200 : 404, noindex };
 }

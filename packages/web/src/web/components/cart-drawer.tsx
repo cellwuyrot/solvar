@@ -70,7 +70,7 @@ export function CartDrawer() {
         </div>
         <div className="flex-1 min-h-24 overflow-y-auto p-6">
           {receipt ? (
-            <div role="status" className="py-8"><h3 className="serif text-3xl">Заявка сохранена</h3><p className="mt-4 text-sm break-all">Номер: {receipt}</p><p className="mt-3 text-sm">Оплата не списывалась. Продавец свяжется с вами для подтверждения.</p><button className="btn mt-5" onClick={() => { setReceipt(""); c.setOpen(false); }}>Готово</button></div>
+            <div role="status" className="py-8"><h3 className="serif text-3xl">Резерв оформлен</h3><p className="mt-4 text-sm break-all">Номер заявки: {receipt}</p><p className="mt-3 text-sm">Ожидайте обратной связи по оформлению: продавец свяжется с вами, подтвердит наличие и условия. Оплата не списывалась.</p><button className="btn mt-5" onClick={() => { setReceipt(""); c.setOpen(false); }}>Готово</button></div>
           ) : !c.lines.length ? (
             <div className="py-20 text-center">
               <ShoppingBag className="mx-auto text-gold" size={32} />
@@ -140,8 +140,8 @@ export function CartDrawer() {
               <OrderCheckout totalKopecks={c.lines.reduce((sum, l) => sum + Math.round(l.product.price * 100) * l.qty, 0) + Math.round(fee * 100)} onAccepted={setReceipt} onBusy={setSubmitting} />
             ) : (<>
             <p className="mb-4 text-sm leading-6 text-muted">
-              Приём заявок через сайт пока отключён. Онлайн-оплата не подключена. Корзина сохраняется — свяжитесь с
-              магазином для уточнения наличия и заказа.
+              Резервирование через сайт временно недоступно. Корзина сохраняется — свяжитесь с
+              магазином для уточнения наличия и оформления.
             </p>
             {q.data?.settings.phone ? (
               <a

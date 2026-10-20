@@ -4,7 +4,7 @@ const { default: app } = await import("./api");
 import { staticFilePath } from "./server-utils/static-path";
 import { resolve } from "node:path";
 const { resolveClientIp } = await import("./api/services/order-security");
-const { pageCatalog, renderPageHtml, escapeHtml } = await import("./api/services/page-seo");
+const { sitemapPaths, renderPageHtml, escapeHtml } = await import("./api/services/page-seo");
 const port = Number(process.env.PORT ?? 4200), dist = resolve(import.meta.dirname, "../dist");
 
 const headers = { "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY", "Referrer-Policy": "no-referrer" };
@@ -17,12 +17,12 @@ Bun.serve({ port, hostname: process.env.HOST || "127.0.0.1", maxRequestBodySize:
     const common = { ...headers, "Content-Security-Policy": "default-src 'self'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'", "Permissions-Policy": "camera=(), microphone=(), geolocation=()", ...(process.env.NODE_ENV === "production" && origin.startsWith("https://") ? { "Strict-Transport-Security": "max-age=31536000" } : {}) };
     if (url.pathname === "/robots.txt") return new Response(`User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\nDisallow: /checkout\nDisallow: /cart\nSitemap: ${origin}/sitemap.xml\n`, { headers: { ...common, "Content-Type": "text/plain; charset=utf-8" } });
     if (url.pathname === "/sitemap.xml") {
-      await pageCatalog();
-      const paths = ["/", "/catalog", "/info/privacy"];
+      const paths = await sitemapPaths();
       return new Response(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${paths.map(p => `<url><loc>${escapeHtml(origin + p)}</loc></url>`).join("")}</urlset>`, { headers: { ...common, "Content-Type": "application/xml; charset=utf-8" } });
     }
     let pathname: string; try { pathname = decodeURIComponent(url.pathname); } catch { return new Response("Bad path", { status: 400, headers: common }); }
-    if (pathname === "/index.html") return Response.redirect(origin + "/", 308);
+    if (pathname === "/index.html" || pathname === "/catalog") return Response.redirect(origin + "/", 308);
+    if (pathname.length > 1 && pathname.endsWith("/")) return Response.redirect(origin + pathname.replace(/\/+$/, "") + url.search, 308);
     const filePath = staticFilePath(dist, pathname);
     if (filePath === null) return new Response("Forbidden", { status: 403, headers: common });
     if (pathname.split("/").some(part => part.startsWith("."))) return new Response("Not found", { status: 404, headers: common });

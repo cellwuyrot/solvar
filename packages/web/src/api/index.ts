@@ -12,6 +12,8 @@ import { managerManagement } from "./routes/managers";
 import { visitPublic, visitStaff, visitOwner } from "./routes/visits";
 import { startVisitWorker } from "./services/visits";
 import { auth } from "./auth";
+import { checkOrigin, ordersAvailable } from "./services/orders";
+import { issueDevice } from "./services/order-security";
 
 // API features are oRPC procedures, one file per feature in ./routes/,
 // composed into this router — typed end-to-end via the clients
@@ -33,7 +35,12 @@ export type AppRouter = typeof router;
 export type AppRouterClient = RouterClient<AppRouter>;
 
 const app = createApp(router);
-app.post("/api/order-session", c => c.json({ ready: false, mode: "information" }, 403));
+app.post("/api/order-session", async c => {
+  try { checkOrigin(c.req.raw.headers); } catch { return c.json({ ready: false }, 403); }
+  const secure = process.env.WEBSITE_URL?.startsWith("https://") ? "; Secure" : "";
+  c.header("Set-Cookie", `solvar-order-device=${issueDevice()}; Path=/; Max-Age=604800; HttpOnly; SameSite=Lax${secure}`);
+  return c.json({ ready: await ordersAvailable() });
+});
 app.get("/api/ready", async c => {
   try {
     await db.select().from(schema.orders).limit(1);
@@ -50,7 +57,7 @@ app.get("/api/ready", async c => {
     await getSettings();
     const owners = await db.select().from(schema.adminMembers).where(eq(schema.adminMembers.role, "owner"));
     if (!owners.some(row => row.active)) throw new Error("Owner unavailable");
-    return c.json({ status: "ready", mode: "information" });
+    return c.json({ status: "ready", mode: "store" });
   } catch { return c.json({ status: "unavailable" }, 503); }
 });
 startNotificationWorker();

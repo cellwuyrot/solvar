@@ -6,7 +6,7 @@ import { base } from "../__core/app";
 import { admin } from "../middleware/admin";
 import { db } from "../database";
 import * as s from "../database/schema";
-import { initialSettings, productSchema, settingsSchema, type Product } from "../../shared/shop";
+import { productSchema, settingsSchema } from "../../shared/shop";
 import { invalidatePageCache } from "../services/page-seo";
 import { captchaRequired } from "../services/order-security";
 import { ordersAvailable } from "../services/orders";
@@ -32,8 +32,9 @@ export const shop = {
       address: s.address, hours: s.hours, privacy: s.privacy, logoMark: s.logoMark, favicon: s.favicon };
   }),
   catalog: base.handler(async () => ({
-    products: (await list()).filter((item) => item.active), // Public informational catalog only; no ordering endpoints.
-    settings: { ...initialSettings, name: (await settings()).name, tagline: "", heroTitle: "", heroText: "", about: "", privacy: "", delivery: "", payment: "", returns: "", offer: "" },
+    // Only published items; internal purchasing fields (cost, demand, priority) never leave the server.
+    products: (await list()).filter((item) => item.active).map(({ cost: _cost, demand: _demand, priority: _priority, ...item }) => ({ ...item, cost: 0, demand: 0, priority: "" })),
+    settings: await settings(), // Public storefront texts and contacts only; integration secrets live elsewhere.
     ordersEnabled: await ordersAvailable(),
     captchaSiteKey: captchaRequired() ? process.env.TURNSTILE_SITE_KEY || "" : "",
   })),
