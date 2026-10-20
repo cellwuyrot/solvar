@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   Check,
   ImagePlus,
+  LayoutGrid,
   Gem,
   RotateCcw,
   LogOut,
@@ -141,7 +142,7 @@ function Login({ onDone }: { onDone: () => void }) {
 }
 function Dashboard({ email, role, userId, onLogout }: { email: string; userId: string; role: "owner" | "admin"; onLogout: () => void }) {
   const q = useManagement();
-  const [tab, setTab] = useState<"products" | "sets" | "brand" | "settings" | "orders" | "members" | "visits">("visits");
+  const [tab, setTab] = useState<"products" | "sets" | "brand" | "settings" | "orders" | "members" | "visits">("products");
   const [search, setSearch] = useState("");
   const [country, setCountry] = useState("");
   const [edit, setEdit] = useState<Product | null>(null);
@@ -178,6 +179,8 @@ function Dashboard({ email, role, userId, onLogout }: { email: string; userId: s
         <p className="mb-8 mt-2 text-xs text-muted">ПАНЕЛЬ УПРАВЛЕНИЯ</p>
         {(
           [
+            ["products", "Товары", LayoutGrid],
+            ["sets", "Наборы", Package],
             ["brand", "Логотип", Gem],
             ["settings", "Настройки", SettingsIcon],
             ["visits", "Визиты / Telegram", Package],
@@ -220,7 +223,7 @@ function Dashboard({ email, role, userId, onLogout }: { email: string; userId: s
                   : "Каталог товаров"}
             </h1>
             <p className="mt-2 text-sm text-muted">
-              Информационный сайт и запись на посещение. Торговые функции отключены.
+              Управление карточками и черновиками каталога. Публичные заказы отключены.
             </p>
           </div>
           {(tab === "products" || tab === "sets") && (
@@ -330,6 +333,8 @@ function Dashboard({ email, role, userId, onLogout }: { email: string; userId: s
                       </td>
                       <td>
                         <div className="flex gap-3">
+                          <button className="text-sm text-gold" onClick={() => { setCreating(false); setEdit(p); }}
+                            aria-label={`Метатеги: ${p.name}`}>Метатеги</button>
                           <button
                             className="text-sm text-gold"
                             onClick={() => {
@@ -474,6 +479,16 @@ function ProductEditor({
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           {text("name", "Название")}
+          <fieldset className="sm:col-span-2 border border-[#e2e5dc] p-4 grid gap-3">
+            <legend className="font-semibold px-2">Метатеги карточки</legend>
+            {text("seoTitle", "SEO Title (до 160 символов)")}
+            <label className="field-label">Meta description (до 320 символов)
+              <textarea className="field" rows={3} maxLength={320} value={draft.seoDescription}
+                onChange={e => set("seoDescription", e.target.value)} />
+            </label>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={draft.seoNoindex}
+              onChange={e => set("seoNoindex", e.target.checked)} /> Исключить карточку из индексации</label>
+          </fieldset>
           <label className="field-label">Наличие<select className="field" value={draft.availability} onChange={e => set("availability", e.target.value as Product["availability"])}><option value="unknown">Уточняется</option><option value="in_stock">В наличии</option><option value="out_of_stock">Нет в наличии</option></select></label>
           {text("ingredients", "Состав / материалы")}
           {text("allergens", "Характеристики / примечания")}
@@ -571,7 +586,7 @@ function ProductEditor({
           <div className="flex gap-5 sm:col-span-2">
             {(
               [
-                ["active", "Показывать на витрине"],
+                ["active", "Публикация (недоступна в информационном режиме)"],
                 ["featured", "Выбор SOLVAR"],
               ] as const
             ).map(([key, label]) => (
@@ -580,6 +595,7 @@ function ProductEditor({
                   aria-label={label}
                   type="checkbox"
                   checked={draft[key]}
+                  disabled={key === "active"}
                   onChange={(e) => set(key, e.target.checked)}
                   className="accent-[#b89a70]"
                 />

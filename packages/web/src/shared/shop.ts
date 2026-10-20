@@ -7,6 +7,9 @@ export const productSchema = z.object({
     .regex(/^[A-Za-z0-9_-]+$/)
     .max(50),
   name: z.string().trim().min(1).max(200),
+  seoTitle: z.string().trim().max(160).default(""),
+  seoDescription: z.string().trim().max(320).default(""),
+  seoNoindex: z.boolean().default(false),
   section: sectionSchema,
   country: z.string().max(60).default(""),
   category: z.string().max(100).default(""),
