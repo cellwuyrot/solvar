@@ -1,19 +1,13 @@
 import { parseCsv, safeCell, toCsv } from "../../shared/csv";
+import { PRODUCT_COLUMNS, productCsvColumnFromHeader, type ProductCsvColumn } from "../../shared/product-import";
 import { productSchema, SECTIONS, type Product } from "../../shared/shop";
 import { httpsImage, productRuleError } from "./product-rules";
 
-export const PRODUCT_COLUMNS = ["id", "name", "section", "price", "oldPrice", "availability", "active", "featured", "badge", "country", "category", "brand", "sub", "description", "weight", "spice",
-  "ingredients", "allergens", "storage", "shelfLife", "seoTitle", "seoDescription", "seoNoindex", "image", "contents", "people", "extras", "season", "cost", "priority", "demand", "sort"] as const;
-type Column = typeof PRODUCT_COLUMNS[number];
+type Column = ProductCsvColumn;
+export { PRODUCT_COLUMNS } from "../../shared/product-import";
 export const MAX_IMPORT_ROWS = 2000;
 export const MAX_IMPORT_BYTES = 1_500_000; // characters; keeps the JSON request under the global body limit
 
-const ALIASES: Record<string, Column> = {
-  "артикул": "id", "код": "id", "название": "name", "наименование": "name", "раздел": "section", "категория товара": "section", "цена": "price", "старая цена": "oldPrice",
-  "наличие": "availability", "опубликован": "active", "публикация": "active", "хит": "featured", "бейдж": "badge", "страна": "country", "категория": "category", "бренд": "brand",
-  "кратко": "sub", "описание": "description", "вес": "weight", "крепость": "spice", "состав": "ingredients", "характеристики": "allergens", "хранение": "storage",
-  "производитель": "shelfLife", "seo title": "seoTitle", "seo description": "seoDescription", "noindex": "seoNoindex", "изображение": "image", "фото": "image", "закупка": "cost", "сортировка": "sort",
-};
 const SECTION_NAMES: Record<string, Product["section"]> = { "коллекции": "sets", "коллекция": "sets", "набор": "sets", "наборы": "sets", "сигары": "cigars", "сигара": "cigars", "табак": "tobacco", "аксессуары": "accessories", "аксессуар": "accessories" };
 const AVAILABILITY: Record<string, Product["availability"]> = { "в наличии": "in_stock", "есть": "in_stock", "нет в наличии": "out_of_stock", "нет": "out_of_stock", "уточняется": "unknown", "": "unknown" };
 const NUMERIC = new Set<Column>(["price", "oldPrice", "spice", "cost", "demand", "sort"]);
@@ -49,6 +43,16 @@ function parseNumber(v: string): number | undefined {
   return Number(t);
 }
 
+/** External systems often use SKUs with spaces or punctuation. Map those values to a stable, valid catalogue ID. */
+function externalIdToProductId(value: string, salt = ""): string {
+  let hash = 2166136261;
+  for (const ch of `${value}${salt}`) {
+    hash ^= ch.codePointAt(0) ?? 0;
+    hash = Math.imul(hash, 16777619);
+  }
+  return `IMP_${(hash >>> 0).toString(36).toUpperCase()}`;
+}
+
 export type ImportError = { row: number; field?: string; message: string };
 export type ImportResult = { created: number; updated: number; errors: ImportError[]; ignoredColumns: string[]; products: Product[] };
 
@@ -63,20 +67,35 @@ export function parseProductImport(csv: string, existing: Product[]): ImportResu
   const ignoredColumns: string[] = []; const columns: (Column | null)[] = [];
   for (const raw of table[0]) {
     const header = raw.trim().replace(/^\uFEFF/, "");
-    const key = (PRODUCT_COLUMNS as readonly string[]).includes(header) ? header as Column : ALIASES[header.toLowerCase()];
+    const key = productCsvColumnFromHeader(header);
     if (!key || columns.includes(key)) { if (header) ignoredColumns.push(header); columns.push(null); } else columns.push(key);
   }
   if (!columns.includes("name") && !columns.includes("id")) return fail("Нужна колонка name (название) или id (артикул). Скачайте шаблон.");
 
   const byId = new Map(existing.map(p => [p.id, p]));
+  // Pre-map external IDs before rows are parsed so bundle contents can use the same IDs even when the source SKU contains punctuation.
+  const idColumnIndex = columns.indexOf("id");
+  const externalIdMap = new Map<string, string>();
+  if (idColumnIndex >= 0) {
+    for (const cells of table.slice(1)) {
+      const sourceId = (cells[idColumnIndex] ?? "").trim();
+      if (!sourceId || /^[A-Za-z0-9_-]{1,50}$/.test(sourceId) || externalIdMap.has(sourceId)) continue;
+      let salt = "";
+      let safeId = externalIdToProductId(sourceId);
+      while ([...externalIdMap.entries()].some(([key, value]) => key !== sourceId && value === safeId)) {
+        salt = `${salt}x`;
+        safeId = externalIdToProductId(sourceId, salt);
+      }
+      externalIdMap.set(sourceId, safeId);
+    }
+  }
   const errors: ImportError[] = []; const candidates: { product: Product; isNew: boolean; row: number }[] = []; const seen = new Set<string>();
   table.slice(1).forEach((cells, index) => {
     const row = index + 2; const record: Record<string, unknown> = {}; let bad = false;
     const problem = (field: string, message: string) => { errors.push({ row, field, message }); bad = true; };
     const cell = (column: Column) => { const i = columns.indexOf(column); return i < 0 ? undefined : (cells[i] ?? "").trim(); };
     const rawId = cell("id") || "";
-    if (rawId && !/^[A-Za-z0-9_-]{1,50}$/.test(rawId)) { problem("id", "id: только латиница, цифры, _ и - (до 50 символов)"); return; }
-    const id = rawId || `P_${Date.now().toString(36)}_${index}`;
+    const id = (rawId && externalIdMap.get(rawId)) || rawId || `P_${Date.now().toString(36)}_${index}`;
     if (seen.has(id)) { problem("id", `Повторяющийся id «${id}» в файле`); return; }
     seen.add(id);
     const previous = byId.get(id);
@@ -93,7 +112,12 @@ export function parseProductImport(csv: string, existing: Product[]): ImportResu
       else if (column === "section") { const section = SECTION_NAMES[value.toLowerCase()] || (value in SECTIONS ? value : undefined); if (!section) problem("section", `section: «${value}» неизвестен (sets, cigars, tobacco, accessories)`); else record.section = section; }
       else if (column === "availability") { const a = AVAILABILITY[value.toLowerCase()] || (["unknown", "in_stock", "out_of_stock"].includes(value) ? value : undefined); if (!a) problem("availability", `availability: «${value}» неизвестно (in_stock, out_of_stock, unknown)`); else record.availability = a; }
       else if (column === "contents") {
-        const parts = value.split("|").map(v => v.trim()).filter(Boolean).map(v => { const [productId, qty] = v.split(":"); return { productId: (productId || "").trim(), qty: Number(qty ?? 1) }; });
+        const parts = value.split("|").map(v => v.trim()).filter(Boolean).map(v => {
+          const separator = v.lastIndexOf(":");
+          const sourceId = (separator >= 0 ? v.slice(0, separator) : v).trim();
+          const quantity = separator >= 0 ? v.slice(separator + 1).trim() : "1";
+          return { productId: externalIdMap.get(sourceId) || sourceId, qty: Number(quantity) };
+        });
         if (parts.some(c => !c.productId || !Number.isInteger(c.qty))) problem("contents", "contents: формат «ID:количество|ID:количество»"); else record.contents = parts;
       } else record[column] = column === "image" ? value : text(value).replace(/^'(?=[=+@-])/, ""); // undo the export-time formula guard
     }
@@ -103,8 +127,27 @@ export function parseProductImport(csv: string, existing: Product[]): ImportResu
     if (!parsed.success) { for (const issue of parsed.error.issues.slice(0, 3)) errors.push({ row, field: String(issue.path[0] ?? ""), message: `${issue.path.join(".") || "строка"}: ${issue.message}` }); return; }
     candidates.push({ product: parsed.data, isNew: !previous, row });
   });
-  // Business rules are checked against the catalogue as it will look after the import (sets may reference products from the same file).
+  // Resolve bundle references against the final catalogue. References may be an internal ID, an external ID
+  // included in this file, or an exact product name when the source system uses names instead of catalogue IDs.
   const after = new Map(byId); for (const c of candidates) after.set(c.product.id, c.product);
+  const nameToId = new Map<string, string | null>();
+  for (const product of after.values()) {
+    if (product.section === "sets") continue;
+    const name = product.name.trim().toLocaleLowerCase();
+    nameToId.set(name, nameToId.has(name) ? null : product.id);
+  }
+  for (const c of candidates) {
+    if (c.product.section === "sets" && c.product.contents.length) {
+      c.product = {
+        ...c.product,
+        contents: c.product.contents.map(item => {
+          if (after.has(item.productId)) return item;
+          const match = nameToId.get(item.productId.trim().toLocaleLowerCase());
+          return match ? { ...item, productId: match } : item;
+        }),
+      };
+    }
+  }
   const all = [...after.values()];
   for (const c of candidates) { const message = productRuleError(c.product, all); if (message) errors.push({ row: c.row, message }); }
   return { created: candidates.filter(c => c.isNew).length, updated: candidates.filter(c => !c.isNew).length, errors, ignoredColumns, products: errors.length ? [] : candidates.map(c => c.product) };

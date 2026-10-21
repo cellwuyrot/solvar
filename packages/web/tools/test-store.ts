@@ -154,6 +154,26 @@ const before = stripImages((await owner.management.catalog()).products);
 const roundTrip = await owner.management.importProducts({ csv: exported.csv, dryRun: false });
 assert.equal(roundTrip.errorCount, 0, JSON.stringify(roundTrip.errors)); assert.equal(roundTrip.created, 0); assert.equal(roundTrip.applied, true);
 assert.equal(stripImages((await owner.management.catalog()).products), before); // export → import changes nothing (formula guard undone)
+// External IDs with spaces/punctuation are normalized consistently and their bundle references are remapped too.
+const externalIdsCsv = "id;name;section;price;active;contents\n\"SKU # bundle\";Импортированный набор;sets;1000;0;\"SKU / component:2\"\n\"SKU / component\";Импортированный компонент;cigars;100;0;\n";
+const externalIdsPreview = await owner.management.importProducts({ csv: externalIdsCsv, dryRun: true });
+assert.equal(externalIdsPreview.errorCount, 0, JSON.stringify(externalIdsPreview.errors)); assert.equal(externalIdsPreview.created, 2); assert.equal(externalIdsPreview.applied, false);
+const externalIdsApplied = await owner.management.importProducts({ csv: externalIdsCsv, dryRun: false });
+assert.equal(externalIdsApplied.errorCount, 0, JSON.stringify(externalIdsApplied.errors)); assert.equal(externalIdsApplied.applied, true);
+const externalProducts = (await owner.management.catalog()).products;
+const externalSet = externalProducts.find(p => p.name === "Импортированный набор")!;
+const externalComponent = externalProducts.find(p => p.name === "Импортированный компонент")!;
+assert.match(externalSet.id, /^IMP_[A-Z0-9]+$/); assert.match(externalComponent.id, /^IMP_[A-Z0-9]+$/);
+assert.deepEqual(externalSet.contents, [{ productId: externalComponent.id, qty: 2 }]);
+const externalRepeat = await owner.management.importProducts({ csv: externalIdsCsv, dryRun: false });
+assert.equal(externalRepeat.created, 0); assert.equal(externalRepeat.updated, 2); assert.equal(externalRepeat.applied, true);
+await owner.management.deleteProduct({ id: externalSet.id }); await owner.management.deleteProduct({ id: externalComponent.id });
+// Bundle contents can also reference a unique component by its exact name instead of a foreign-system ID.
+const nameRefCsv = "id;name;section;price;active;contents\nSET-NAME;Набор по названию;sets;1000;0;Компонент по названию:2\nCOMP-NAME;Компонент по названию;cigars;100;0;\n";
+const nameRefResult = await owner.management.importProducts({ csv: nameRefCsv, dryRun: false });
+assert.equal(nameRefResult.errorCount, 0, JSON.stringify(nameRefResult.errors)); assert.equal(nameRefResult.applied, true);
+assert.deepEqual((await owner.management.catalog()).products.find(p => p.id === "SET-NAME")!.contents, [{ productId: "COMP-NAME", qty: 2 }]);
+await owner.management.deleteProduct({ id: "SET-NAME" }); await owner.management.deleteProduct({ id: "COMP-NAME" });
 const ru = "Артикул;Название;Раздел;Цена;Наличие;Опубликован;Описание\r\nIMP-1;Сигара Импорт;Сигары;1 250,50;в наличии;да;Из CSV\r\nb-formula;Обновлённая;;777;;нет;\r\nIMP-SET;Набор из файла;Коллекции;3000;;да;Набор\r\n";
 const countProducts = async () => (await db.select().from(s.products)).length; const n0 = await countProducts();
 const preview = await owner.management.importProducts({ csv: ru, dryRun: true });
@@ -167,7 +187,7 @@ assert((await anon.shop.catalog()).products.some(p => p.id === "IMP-1")); assert
 // all-or-nothing: one bad row blocks the whole file
 const n1 = await countProducts(); const priceBefore = (await owner.management.catalog()).products.find(p => p.id === "IMP-1")!.price;
 const bad = await owner.management.importProducts({ csv: "id;name;section;price;contents\nOK-1;Хорошая;cigars;100;\nIMP-1;Цена не число;cigars;abc;\nBAD-2;Раздел;wine;10;\nOK-1;Дубль;cigars;5;\nSET-X;Набор;sets;50;MISSING:1\nBAD ID;Пробел;cigars;1;", dryRun: false });
-assert.equal(bad.applied, false); assert(bad.errorCount >= 5, "errors: " + JSON.stringify(bad.errors)); assert(bad.errors.every(e => e.row >= 2));
+assert.equal(bad.applied, false); assert(bad.errorCount >= 4, "errors: " + JSON.stringify(bad.errors)); assert(bad.errors.every(e => e.row >= 2));
 assert.equal(await countProducts(), n1); assert.equal((await owner.management.catalog()).products.find(p => p.id === "IMP-1")!.price, priceBefore);
 assert((await owner.management.importProducts({ csv: "foo;bar\n1;2", dryRun: true })).errorCount > 0);
 assert((await owner.management.importProducts({ csv: "id;name\n", dryRun: true })).errorCount > 0);
