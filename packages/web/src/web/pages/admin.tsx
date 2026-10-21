@@ -585,7 +585,7 @@ function ProductEditor({
               onChange={(e) => set("description", e.target.value)}
             />
           </label>
-          <div className="flex gap-5 sm:col-span-2">
+          <div className="flex flex-wrap gap-5 sm:col-span-2">
             {(
               [
                 ["active", "Опубликовать в каталоге"],
@@ -597,7 +597,6 @@ function ProductEditor({
                   aria-label={label}
                   type="checkbox"
                   checked={draft[key]}
-                  disabled={key === "active"}
                   onChange={(e) => set(key, e.target.checked)}
                   className="accent-[#b89a70]"
                 />
@@ -605,6 +604,7 @@ function ProductEditor({
               </label>
             ))}
           </div>
+          {draft.active && draft.price <= 0 && <p className="sm:col-span-2 text-xs text-muted">Чтобы сохранить публикацию в каталоге, укажите цену больше нуля.</p>}
           <div className="sm:col-span-2">
             <span className="field-label">Изображение (JPG, PNG, WebP, до 2 МБ)</span>
             <div className="flex items-start gap-4">
