@@ -4,7 +4,6 @@ import { ORPCError } from "@orpc/server";
 import { db } from "../database";
 import * as s from "../database/schema";
 import { integrationSchema, type OrderSnapshot } from "../../shared/orders";
-import { getOrderChatIds } from "../../shared/order-helpers";
 import { productSchema, settingsSchema, rub } from "../../shared/shop";
 import { captchaConfigured, captchaRequired } from "./order-security";
 
