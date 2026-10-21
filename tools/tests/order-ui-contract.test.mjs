@@ -47,6 +47,8 @@ test("legal-document acknowledgement no longer blocks order intake", () => {
   const route = read("packages/web/src/api/routes/orders.ts");
   const orders = read("packages/web/src/api/services/orders.ts");
   const admin = read("packages/web/src/web/components/admin-orders.tsx");
+  const security = read("packages/web/src/api/services/order-security.ts");
+  assert.match(security, /ORDER_CAPTCHA_REQUIRED === "true"/);
   assert.doesNotMatch(route, /requireCommerce|!input\.documentsReady/);
   assert.match(route, /input\.enabled && captchaRequired\(\) && !captchaConfigured\(\)/);
   assert.doesNotMatch(orders, /COMMERCE_ENABLED/);
@@ -54,4 +56,17 @@ test("legal-document acknowledgement no longer blocks order intake", () => {
   assert.match(admin, /Включить приём заявок/);
   const information = read("packages/web/src/web/pages/information.tsx");
   assert.doesNotMatch(information, /Дистанционное оформление заказов и бронирование на сайте недоступны/);
+});
+
+
+test("visit activation does not depend on address, policy length, or CAPTCHA setup", () => {
+  const route = read("packages/web/src/api/routes/visits.ts");
+  const visits = read("packages/web/src/api/services/visits.ts");
+  const admin = read("packages/web/src/web/components/admin-visits.tsx");
+  const env = read(".env.template");
+  assert.doesNotMatch(route, /input\.enabled && !current\.ready/);
+  assert.match(visits, /enabled: config\.enabled/);
+  assert.match(visits, /VISIT_CAPTCHA_REQUIRED === "true"/);
+  assert.match(admin, /не блокируют включение записи/);
+  assert.match(env, /^VISIT_CAPTCHA_REQUIRED=false$/m);
 });

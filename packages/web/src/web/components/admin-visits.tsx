@@ -52,8 +52,8 @@ function VisitSettingsForm({ config }: { config: Awaited<ReturnType<typeof impor
   const [enabled, setEnabled] = useState(config.enabled), [telegramEnabled, setTelegramEnabled] = useState(config.telegramEnabled), [chatId, setChatId] = useState(config.chatId), [message, setMessage] = useState("");
   const save = useMutation(orpc.visitOwner.saveConfig.mutationOptions({ onSuccess: () => { setMessage("Настройки сохранены"); void cache.invalidateQueries(); } }));
   const test = useMutation(orpc.visitOwner.testTelegram.mutationOptions({ onSuccess: () => setMessage("Telegram подтвердил отправку тестового сообщения.") }));
-  return <section className="admin-form space-y-4"><h2 className="text-2xl">Запись и Telegram</h2><p className="text-sm">Адрес и часы работы меняются в разделе «Настройки». Для записи нужны адрес, заполненная политика и CAPTCHA. Токен бота хранится только в .env.</p>
-    <p>Токен: {config.tokenConfigured ? "задан" : "не задан"}. Готовность формы: {config.ready ? "готова к включению" : "проверьте адрес, политику и CAPTCHA"}.</p>
+  return <section className="admin-form space-y-4"><h2 className="text-2xl">Запись и Telegram</h2><p className="text-sm">Адрес и часы работы меняются в разделе «Настройки». Контактные данные и политика отображаются клиентам, но не блокируют включение записи. CAPTCHA отключена по умолчанию; её можно включить отдельно через серверные настройки. Токен бота хранится только в .env.</p>
+    <p>Токен: {config.tokenConfigured ? "задан" : "не задан"}. Проверка CAPTCHA: {config.captchaRequired ? config.ready ? "обязательна и настроена" : "включена, но серверные ключи не заданы" : "не обязательна"}.</p>
     <form className="space-y-4" onSubmit={e => { e.preventDefault(); save.mutate({ enabled, telegramEnabled, chatId }); }}>
       <label className="flex gap-3 items-center"><input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} />Принимать записи на посещение</label>
       <label className="field-label">Telegram Chat ID<input className="field mt-2" placeholder="Например: 426852173" value={chatId} onChange={e => setChatId(e.target.value)} maxLength={21} /></label>

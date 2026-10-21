@@ -33,11 +33,13 @@ await reject(() => rpc(login.token, "https://attacker.invalid").visitOwner.confi
 const config = await owner.management.catalog();
 const legacyProducts = JSON.stringify(config.products);
 const rawOrders = JSON.stringify(await db.select().from(s.orders));
-await owner.management.saveSettings({ ...config.settings, address: "Тестовый адрес, дом 1", hours: "10–20", privacy: "Тестовая политика обработки имени и телефона исключительно для организации посещения магазина. Данные доступны сотрудникам и удаляются владельцем после визита." });
+await owner.management.saveSettings({ ...config.settings, address: "", hours: "10–20", privacy: "Коротко" });
 process.env.VISIT_CAPTCHA_REQUIRED = "true";
-await reject(() => owner.visitOwner.saveConfig({ enabled: true }), "PRECONDITION_FAILED");
-process.env.VISIT_CAPTCHA_REQUIRED = "false";
+// Activation must not be blocked by address/policy length or missing Turnstile keys.
 await owner.visitOwner.saveConfig({ enabled: true });
+assert.equal((await anon.visits.config()).enabled, true);
+await owner.management.saveSettings({ ...config.settings, address: "Тестовый адрес, дом 1", hours: "10–20", privacy: "Тестовая политика обработки имени и телефона исключительно для организации посещения магазина. Данные доступны сотрудникам и удаляются владельцем после визита." });
+process.env.VISIT_CAPTCHA_REQUIRED = "false";
 const publicConfig = await anon.visits.config();
 assert.equal(publicConfig.enabled, true);
 assert(!("chatId" in publicConfig)); assert(!("tokenConfigured" in publicConfig));
@@ -65,7 +67,7 @@ await anon.visits.create(input); // Retry returns the same result even with an e
 assert.equal((await db.select().from(s.visits)).length, 1);
 await reject(() => anon.visits.create({ ...input, name: "Other" }), "CONFLICT");
 process.env.VISIT_CAPTCHA_REQUIRED = "false";
-pass("visit form is opt-in; foreign origin/extra fields/stale privacy/past dates rejected; CAPTCHA action and hostname checked; idempotency preserved");
+pass("visit activation is not blocked by address/policy length; foreign origin/extra fields/stale privacy/past dates rejected; explicitly enabled CAPTCHA action and hostname are checked; idempotency preserved");
 // Never send real external messages in tests.
 globalThis.fetch = (async (url: unknown, init?: RequestInit) => { calls.push({ url: String(url), body: String(init?.body) }); return Response.json({ ok: true }); }) as typeof fetch;
 await Promise.all([tickVisitNotifications(), tickVisitNotifications()]);

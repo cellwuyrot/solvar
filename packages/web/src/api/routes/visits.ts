@@ -71,8 +71,6 @@ export const visitOwner = {
   config: owner.handler(async () => ({ ...await visitPublicConfig(), ...await getVisitConfig(), tokenConfigured: !!process.env.TELEGRAM_BOT_TOKEN?.trim() })),
   saveConfig: owner.input(visitConfigSchema).handler(async ({ input, context }) => {
     checkOrigin(context.headers);
-    const current = await visitPublicConfig();
-    if (input.enabled && !current.ready) throw fail("Укажите адрес и политику (минимум 50 символов), настройте CAPTCHA на сервере.");
     if (input.telegramEnabled && (!input.chatId || !process.env.TELEGRAM_BOT_TOKEN?.trim())) throw fail("Нужны Chat ID и токен в .env.");
     await db.insert(s.visitConfig).values({ id: "main", data: JSON.stringify(input) }).onConflictDoUpdate({ target: s.visitConfig.id, set: { data: JSON.stringify(input) } });
     return { ok: true };
