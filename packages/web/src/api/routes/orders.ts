@@ -12,6 +12,7 @@ import { checkOrigin, digest, getIntegration, listOrders, makeSnapshot, ordersAv
 import { captchaConfigured, captchaRequired, deviceId, normalizePhone, persistentRate, verifyCaptcha } from "../services/order-security";
 import { deliverOrder, sendEmail, smtpConfigured } from "../services/order-notifications";
 import { editOrder, persistOrder } from "../services/order-persistence";
+import { customersCsv, ordersCsv } from "../services/order-export";
 const editSchema = z.object({ id: z.string().uuid(), version: z.number().int().nonnegative() });
 export const orderPublic = {
   createOrder: base.input(orderInputSchema).handler(async ({ input, context }) => {
@@ -51,6 +52,12 @@ export const orderManagement = {
     await db.insert(s.orderIntegration).values({ id: "main", data: JSON.stringify(input) })
       .onConflictDoUpdate({ target: s.orderIntegration.id, set: { data: JSON.stringify(input) } });
     return { ok: true };
+  }),
+  /** Bulk personal-data export: owner only. Only the count and the actor are logged, never the contents. */
+  exportOrders: owner.input(z.object({ kind: z.enum(["orders", "customers"]) })).handler(async ({ input, context }) => {
+    const result = input.kind === "customers" ? await customersCsv() : await ordersCsv();
+    console.info(`Personal data export (${input.kind}, ${result.count} rows) by ${context.user.email}`);
+    return { ...result, filename: `solvar-${input.kind}-${new Date().toISOString().slice(0, 10)}.csv` };
   }),
   testTelegram: owner.handler(async () => {
     if (process.env.DEPLOYMENT_ENV !== "staging") throw new ORPCError("FORBIDDEN", { message: "Тестовые отправки разрешены только на staging" });

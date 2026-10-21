@@ -44,6 +44,7 @@ import { AdminMembers } from "../components/admin-members";
 import { AdminVisits, StaffPassword } from "../components/admin-visits";
 import { ManagerMembers } from "../components/manager-members";
 import { AdminOrders } from "../components/admin-orders";
+import { ProductBulkTools } from "../components/admin-bulk";
 function errorText(error: unknown) {
   return error instanceof Error ? error.message : "Не удалось выполнить действие";
 }
@@ -233,6 +234,7 @@ function Dashboard({ email, role, userId, onLogout }: { email: string; userId: s
             </button>
           )}
         </div>
+        {(tab === "products" || tab === "sets") && <ProductBulkTools />}
         {q.isPending ? (
           <div className="spinner" />
         ) : q.isError ? (
@@ -241,7 +243,7 @@ function Dashboard({ email, role, userId, onLogout }: { email: string; userId: s
             <button onClick={() => q.refetch()}>Повторить</button>
           </p>
         ) : tab === "visits" ? (<><AdminVisits role={role} userId={userId} /><StaffPassword /></>) : tab === "members" && role === "owner" ? (<><ManagerMembers /><AdminMembers /></>) : tab === "orders" ? (
-          <AdminOrders />
+          <AdminOrders role={role} />
         ) : tab === "brand" ? (
           <BrandEditor initial={q.data!.settings} />
         ) : tab === "settings" ? (
