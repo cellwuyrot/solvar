@@ -33,7 +33,8 @@ const orderId = crypto.randomUUID();
 const data = { name: "Isolated fixture", phone: "+79990000001", email: "visitor@example.invalid", comment: "PUBLIC_MESSAGE", items: [], subtotalKopecks: 0, deliveryKopecks: 0, totalKopecks: 0, consent: { acceptedAt: new Date().toISOString(), policyHash: "fixture", text: "fixture" } };
 await db.insert(s.orders).values({ id: orderId, requestHash: "fixture", createdAt: new Date().toISOString(), data: JSON.stringify(data), notificationUpdatedAt: new Date().toISOString(), adminNote: "PRIVATE_STAFF_NOTE", notification: "pending" });
 await rejectCode(() => anon.shop.createOrder({ requestId: orderId, name: "Fixture", phone: "+79990000001", expectedTotalKopecks: 0, consent: true, items: [{ productId: "not-a-product", qty: 1 }] }), "PRECONDITION_FAILED"); // no signed device cookie
-await rejectCode(() => owner.management.saveIntegration({ enabled: true, documentsReady: false }), "BAD_REQUEST");
+assert.equal((await owner.management.saveIntegration({ enabled: true, documentsReady: false })).ok, true);
+assert.equal((await owner.management.integration()).enabled, true);
 const catalog = await anon.shop.catalog();
 assert.equal(catalog.ordersEnabled, true); assert.deepEqual(catalog.products, []);
 assert(!JSON.stringify(catalog).includes("PRIVATE_STAFF_NOTE"));

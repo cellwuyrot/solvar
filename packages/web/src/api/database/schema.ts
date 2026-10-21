@@ -20,6 +20,8 @@ export const orders = sqliteTable("shop_orders", {
   createdAt: text("created_at").notNull(),
   data: text("data").notNull(),
   status: text("status").notNull().default("new"),
+  assignedTo: text("assigned_to").notNull().default(""),
+  telegramDeliveredChats: text("telegram_delivered_chats").notNull().default("[]"),
   notification: text("notification").notNull().default("pending"),
   notificationUpdatedAt: text("notification_updated_at").notNull(),
   notificationError: text("notification_error").notNull().default(""),

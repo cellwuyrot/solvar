@@ -9,7 +9,7 @@ try {
   const columns = await client.execute("PRAGMA table_info(shop_orders)");
   const existing = new Set(columns.rows.map(row => String(row.name)));
   const additions: Record<string, string> = {
-    admin_note: "TEXT NOT NULL DEFAULT ''", version: "INTEGER NOT NULL DEFAULT 0", payment_data: "TEXT NOT NULL DEFAULT '{}'",
+    admin_note: "TEXT NOT NULL DEFAULT ''", assigned_to: "TEXT NOT NULL DEFAULT ''", telegram_delivered_chats: "TEXT NOT NULL DEFAULT '[]'", version: "INTEGER NOT NULL DEFAULT 0", payment_data: "TEXT NOT NULL DEFAULT '{}'",
     email_notification: "TEXT NOT NULL DEFAULT 'disabled'", email_updated_at: "TEXT NOT NULL DEFAULT ''", email_error: "TEXT NOT NULL DEFAULT ''",
     telegram_attempts: "INTEGER NOT NULL DEFAULT 0", email_attempts: "INTEGER NOT NULL DEFAULT 0",
     telegram_retry_at: "TEXT NOT NULL DEFAULT ''", email_retry_at: "TEXT NOT NULL DEFAULT ''",

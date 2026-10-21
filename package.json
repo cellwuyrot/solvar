@@ -30,7 +30,7 @@
     "db:migrate:solvar": "cd packages/web && bun --env-file=../../.env tools/migrate-solvar.ts",
     "env:local": "node tools/setup-local-env.cjs",
     "test:visits": "node tools/test-visits.cjs",
-    "test:technical": "node --experimental-strip-types --test tools/tests/technical.test.mjs tools/tests/environment.test.mjs tools/tests/product-import.test.mjs",
+    "test:technical": "node --experimental-strip-types --test tools/tests/technical.test.mjs tools/tests/environment.test.mjs tools/tests/product-import.test.mjs tools/tests/order-workflow.test.mjs tools/tests/order-recipients.test.mjs tools/tests/order-ui-contract.test.mjs",
     "db:visits": "cd packages/web && bun --env-file=../../.env tools/setup-visits.ts",
     "db:admins": "cd packages/web && bun --env-file=../../.env tools/setup-admins.ts",
     "db:restore": "cd packages/web && bun --env-file=../../.env tools/restore-local.ts",

@@ -4,8 +4,8 @@ import { ORPCError } from "@orpc/server";
 import { db } from "../database";
 import * as s from "../database/schema";
 import { integrationSchema, type OrderSnapshot } from "../../shared/orders";
+import { getOrderChatIds } from "../../shared/order-helpers";
 import { productSchema, settingsSchema, rub } from "../../shared/shop";
-import { COMMERCE_ENABLED } from "./commerce-policy";
 import { captchaConfigured, captchaRequired } from "./order-security";
 
 export const digest = (v: string) => createHash("sha256").update(v).digest("hex");
@@ -16,7 +16,6 @@ export async function getIntegration() {
 export const tokenConfigured = () => Boolean(process.env.TELEGRAM_BOT_TOKEN?.trim());
 /** Requests are accepted only when the owner enabled intake and, if required, CAPTCHA keys are present (fail closed). */
 export async function ordersAvailable() {
-  if (!COMMERCE_ENABLED) return false;
   if (captchaRequired() && !captchaConfigured()) return false;
   return (await getIntegration()).enabled;
 }
@@ -25,7 +24,7 @@ export async function getSettings() {
   if (!row) throw new ORPCError("INTERNAL_SERVER_ERROR", { message: "Выполните db:seed" });
   return settingsSchema.parse(JSON.parse(row.data));
 }
-export async function makeSnapshot(input: { name: string; phone: string; email?: string; comment: string; items: { productId: string; qty: number }[]; expectedTotalKopecks: number }): Promise<OrderSnapshot> {
+export async function makeSnapshot(input: { name: string; phone: string; email?: string; preferredTime?: string; telegram?: string; comment: string; items: { productId: string; qty: number }[]; expectedTotalKopecks: number }): Promise<OrderSnapshot> {
   if (new Set(input.items.map(i => i.productId)).size !== input.items.length)
     throw new ORPCError("BAD_REQUEST", { message: "Повторяющиеся позиции корзины" });
   const catalog = (await db.select().from(s.products)).map(row => productSchema.parse(JSON.parse(row.data)));
@@ -40,8 +39,8 @@ export async function makeSnapshot(input: { name: string; phone: string; email?:
   const totalKopecks = subtotalKopecks + deliveryKopecks;
   if (totalKopecks !== input.expectedTotalKopecks)
     throw new ORPCError("CONFLICT", { message: "Цена или доставка изменились. Обновите страницу и проверьте сумму." });
-  return { name: input.name, phone: input.phone, email: input.email || "", comment: input.comment, items, subtotalKopecks, deliveryKopecks, totalKopecks,
-    consent: { acceptedAt: new Date().toISOString(), policyHash: digest(settings.privacy), policyText: settings.privacy, text: "Согласен на обработку имени, телефона, email и комментария для обработки заявки согласно политике конфиденциальности." } };
+  return { name: input.name, phone: input.phone, email: input.email || "", preferredTime: input.preferredTime || "", telegram: input.telegram || "", comment: input.comment, items, subtotalKopecks, deliveryKopecks, totalKopecks,
+    consent: { acceptedAt: new Date().toISOString(), policyHash: digest(settings.privacy), policyText: settings.privacy, text: "Согласен на обработку имени, телефона, email, желаемого времени связи, Telegram-ника и комментария для обработки заявки согласно политике конфиденциальности." } };
 }
 export function checkOrigin(headers: Headers) {
   const origin = headers.get("origin");
@@ -67,14 +66,14 @@ export async function sendTelegram(chatId: string, text: string) {
 }
 export function formatOrderMessage(id: string, at: string, data: OrderSnapshot) {
   const lines = data.items.map(i => `${i.name.slice(0, 28)} × ${i.qty} — ${rub(i.priceKopecks * i.qty / 100)}`);
-  return ["Новая заявка SOLVAR (не оплачена)", `№ ${id}`, `Дата: ${at}`, `Имя: ${data.name}`, `Телефон: ${data.phone}`, data.email ? `Email: ${data.email}` : "",
+  return ["Новая заявка SOLVAR (не оплачена)", `№ ${id}`, `Дата: ${at}`, `Имя: ${data.name}`, `Телефон: ${data.phone}`, data.email ? `Email: ${data.email}` : "", data.preferredTime ? `Удобное время связи: ${data.preferredTime}` : "", data.telegram ? `Telegram: ${data.telegram}` : "",
     ...lines, `Товары: ${rub(data.subtotalKopecks / 100)}`, `Доставка предварительно: ${rub(data.deliveryKopecks / 100)}`,
     `Итого предварительно: ${rub(data.totalKopecks / 100)}`, data.comment ? `Комментарий: ${data.comment}` : "",
     "Наличие, доставка и окончательная сумма требуют подтверждения продавцом."].filter(Boolean).join("\n");
 }
 export async function listOrders(offset: number, search = "", status = "") {
   const escaped = "%" + search.replace(/[\\%_]/g, v => "\\" + v) + "%";
-  const where = and(status ? eq(s.orders.status, status) : undefined, search ? sql`(json_extract(${s.orders.data}, '$.name') LIKE ${escaped} ESCAPE '\\' OR json_extract(${s.orders.data}, '$.phone') LIKE ${escaped} ESCAPE '\\' OR ${s.orders.id} LIKE ${escaped} ESCAPE '\\')` : undefined);
+  const where = and(status ? eq(s.orders.status, status) : undefined, search ? sql`(json_extract(${s.orders.data}, '$.name') LIKE ${escaped} ESCAPE '\\' OR json_extract(${s.orders.data}, '$.phone') LIKE ${escaped} ESCAPE '\\' OR json_extract(${s.orders.data}, '$.email') LIKE ${escaped} ESCAPE '\\' OR json_extract(${s.orders.data}, '$.telegram') LIKE ${escaped} ESCAPE '\\' OR ${s.orders.id} LIKE ${escaped} ESCAPE '\\')` : undefined);
   const rows = await db.select().from(s.orders).where(where).orderBy(desc(s.orders.createdAt), desc(s.orders.id)).limit(51).offset(offset);
-  return { hasMore: rows.length > 50, orders: rows.slice(0, 50).map(({ requestHash: _hash, ...row }) => ({ ...row, paymentData: JSON.parse(row.paymentData) as { invoiceNumber?: string; paymentUrl?: string; finalTotalKopecks?: number; state?: string }, data: JSON.parse(row.data) as OrderSnapshot })) };
+  return { hasMore: rows.length > 50, orders: rows.slice(0, 50).map(({ requestHash: _hash, telegramDeliveredChats: _telegramDeliveredChats, ...row }) => ({ ...row, paymentData: JSON.parse(row.paymentData) as { invoiceNumber?: string; paymentUrl?: string; finalTotalKopecks?: number; state?: string }, data: JSON.parse(row.data) as OrderSnapshot })) };
 }
