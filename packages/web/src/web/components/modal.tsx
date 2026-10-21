@@ -1,5 +1,5 @@
 import { useEffect, useRef, type ReactNode } from "react";
-/** Native dialog supplies focus trapping and restores focus to its trigger. */
+/** Native dialog traps focus; cleanup also restores it when React unmounts it. */
 export function Modal({
   children,
   onClose,
@@ -12,12 +12,14 @@ export function Modal({
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const el = ref.current;
+    const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     el?.showModal();
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       el?.close();
       document.body.style.overflow = prev;
+      if (trigger?.isConnected) trigger.focus({ preventScroll: true });
     };
   }, []);
   return (
@@ -32,7 +34,7 @@ export function Modal({
     >
       <button
         type="button"
-        className="absolute inset-0"
+        className="modal-backdrop"
         onClick={onClose}
         aria-label="Закрыть окно"
       />

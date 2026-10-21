@@ -36,7 +36,8 @@
     "db:restore": "cd packages/web && bun --env-file=../../.env tools/restore-local.ts",
     "test:hardening": "node tools/test-hardening.cjs",
     "serve:web": "npm run start --workspace=@template/web",
-    "test:store": "node tools/test-store.cjs"
+    "test:store": "node tools/test-store.cjs",
+    "test:detail-layout": "node tools/test-detail-layout.cjs"
   },
   "devDependencies": {
     "@runablehq/runkit": "0.1.1",

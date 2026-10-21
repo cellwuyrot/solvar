@@ -178,7 +178,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .availability-note { color: #65675e; font-size: 12px; }
 .add-to-cart { display: grid; width: 35px; height: 35px; flex: 0 0 auto; place-items: center; border: 1px solid #aaa393; background: transparent; color: #743b42; transition: all .2s; }
 .add-to-cart:hover:not(:disabled) { background: var(--metal); color: #fffdf8; }
-.product-detail-panel { position: relative; display: grid; width: 100%; max-width: 850px; max-height: 90dvh; grid-template-columns: .9fr 1.1fr; overflow-y: auto; border: 1px solid #d9d5ca; background: #f8f6f1; color: var(--text); box-shadow: 0 30px 100px #000c; }
+.product-detail-panel { position: relative; border: 1px solid #d9d5ca; background: #f8f6f1; color: var(--text); box-shadow: 0 30px 100px #000c; }
 .detail-close { position: absolute; z-index: 5; top: 12px; right: 12px; display: grid; width: 34px; height: 34px; place-items: center; border: 1px solid #b7b3a7; background: #f8f6f1; color: #d4c8b5; }
 .product-detail-image { min-height: 350px; }
 .product-detail-copy { padding: 36px 30px 28px; }
@@ -230,9 +230,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .breadcrumbs { color: #65675e; font-size: 14px; line-height: 1.5; }
 .breadcrumbs a { text-decoration: underline; text-decoration-color: #aaa393; text-underline-offset: 3px; }
 .modal { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; padding: 18px; }
-dialog.modal { width: 100vw; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; color: inherit; }
+dialog.modal { --modal-gap: clamp(12px, 3vw, 24px); width: 100%; height: 100vh; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: var(--modal-gap); overflow: hidden; border: 0; background: transparent; color: inherit; }
+/* The backdrop is separate from the panel: clicking content must not dismiss it. */
+.modal-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; background: transparent; }
 dialog.modal::backdrop, dialog.drawer::backdrop { background: #000b; backdrop-filter: blur(5px); }
-.modal-panel { position: relative; width: 100%; max-width: 660px; max-height: 90dvh; overflow-y: auto; border: 1px solid #d9d5ca; background: #f8f6f1; box-shadow: 0 20px 80px #000b; }
+.modal-panel { position: relative; width: 100%; max-width: 660px; max-height: min(90dvh, calc(100dvh - 2 * var(--modal-gap, 18px))); overflow-y: auto; border: 1px solid #d9d5ca; background: #f8f6f1; box-shadow: 0 20px 80px #000b; }
 .drawer { position: fixed; z-index: 60; top: 0; right: 0; display: flex; width: 100%; max-width: 470px; height: 100dvh; flex-direction: column; background: #f8f6f1; color: var(--text); box-shadow: -10px 0 60px #0007; transition: transform .3s; }
 dialog.drawer { left: auto; bottom: 0; margin: 0; padding: 0; border: 0; border-left: 1px solid #d9d5ca; max-height: none; color: inherit; }
 dialog.drawer:not([open]) { display: none; }
@@ -306,7 +308,6 @@ tbody tr:hover { background: #eae5db; }
   .collection-empty { grid-template-columns: 48px minmax(0, 1fr); gap: 15px; padding: 20px; }
   .empty-index { width: 43px; height: 43px; font-size: 22px; }
   .collection-empty .text-link { grid-column: 2; justify-self: start; }
-  .product-detail-panel { grid-template-columns: 1fr; }
   .product-detail-image { min-height: 250px; max-height: 36vh; }
   .product-detail-copy { padding: 25px 22px; }
   .product-detail-copy h3 { font-size: 31px; }
@@ -549,6 +550,69 @@ body { font-size: 16px; line-height: 1.6; }
 .information-footer { border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
 @media (max-width: 640px) { .information-layout { padding-inline: 20px; }.information-header { padding-block: 16px; }.information-menu { display: block; }.information-header nav { display: none; width: 100%; flex-direction: column; gap: 8px; }.information-header nav.is-open { display: flex; }.information-main { padding-block: 40px 56px; }.information-details { grid-template-columns: 1fr; gap: 6px; }.information-details dd { margin-bottom: 16px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }
+
+/* Detail dialog: one bounded viewport, one vertical scroller, no horizontal pan.
+   Keep these rules after the legacy responsive overrides above. */
+.modal-panel.product-detail-panel {
+  display: block;
+  width: 100%;
+  max-width: 960px;
+  max-height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 6px;
+}
+.product-detail-content {
+  display: grid;
+  grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+  max-height: calc(100vh - 2 * var(--modal-gap) - 2px);
+  max-height: calc(100dvh - 2 * var(--modal-gap) - 2px);
+  min-width: 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.product-detail-content > .product-detail-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.product-detail-content > .product-detail-image {
+  display: grid;
+  place-items: center;
+  align-self: start;
+  min-width: 0;
+  min-height: 0;
+  height: clamp(240px, 54vh, 520px);
+  height: clamp(240px, 54dvh, 520px);
+  max-height: none;
+  overflow: hidden;
+}
+.product-detail-content .product-image,
+.product-detail-content .product-image-placeholder {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: auto;
+  object-fit: contain;
+}
+.product-detail-panel > .detail-close {
+  color: var(--text);
+  box-shadow: 0 2px 8px #25282414;
+}
+@media (max-width: 800px) {
+  .product-detail-content { grid-template-columns: minmax(0, 1fr); }
+  .product-detail-content > .product-detail-image {
+    height: clamp(160px, 30vh, 280px);
+    height: clamp(160px, 30dvh, 280px);
+  }
+  .product-detail-content > .product-detail-copy { padding: 24px 20px; }
+}
 
 /* Visit form: neutral, responsive, no commerce controls. */
 .visit-panel { margin-top: 2.5rem; padding: clamp(1rem, 3vw, 2rem); border: 1px solid #d9ddcc; background: #fff; max-width: 42rem; }
