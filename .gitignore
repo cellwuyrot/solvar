@@ -86,4 +86,5 @@ backups/
 /qa-visits/
 /qa-hardening/
 /qa-store/
+/qa-detail-layout/
 local.db*

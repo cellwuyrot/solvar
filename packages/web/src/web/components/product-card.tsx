@@ -52,16 +52,18 @@ function ProductDetails({ p, onClose }: { p: Product; onClose: () => void }) {
     <Modal onClose={onClose} label={p.name}>
       <div className="modal-panel product-detail-panel" style={{ zIndex: 81 }}>
         <button onClick={onClose} className="detail-close" aria-label="Закрыть"><X size={18} /></button>
-        <div className="product-detail-image"><Packshot p={p} /></div>
-        <div className="product-detail-copy">
-          <p className="eyebrow">{section.title}</p>
-          <h3>{p.name}</h3>
-          <p className="detail-description">{p.description || p.sub || "Подробное описание будет добавлено продавцом."}</p>
-          {fields.filter(([, value]) => !!value).map(([label, value]) => <div className="detail-field" key={label}><span>{label}</span><p>{value}</p></div>)}
-          {p.contents.length > 0 && <div className="detail-field"><span>Состав коллекции</span><ul>{p.contents.map((item) => <li key={item.productId}>{shop.data?.products.find((x) => x.id === item.productId)?.name || item.productId} × {item.qty}</li>)}</ul></div>}
-          {p.extras && <div className="detail-field"><span>Дополнительно</span><p>{p.extras}</p></div>}
-          <div className="product-detail-actions"><div><b>{rub(p.price)}</b><span>{p.availability === "in_stock" ? "В наличии" : p.availability === "out_of_stock" ? "Нет в наличии" : "Наличие уточняется"}</span></div><button className="btn" disabled={p.availability === "out_of_stock"} onClick={() => { cart.add(p.id); onClose(); }}>В корзину <ArrowUpRight size={16} /></button></div>
-          <Link className="detail-page-link" href={`/products/${p.id}`} onClick={onClose}>Открыть страницу позиции ↗</Link>
+        <div className="product-detail-content">
+          <div className="product-detail-image"><Packshot p={p} /></div>
+          <div className="product-detail-copy">
+            <p className="eyebrow">{section.title}</p>
+            <h3>{p.name}</h3>
+            <p className="detail-description">{p.description || p.sub || "Подробное описание будет добавлено продавцом."}</p>
+            {fields.filter(([, value]) => !!value).map(([label, value]) => <div className="detail-field" key={label}><span>{label}</span><p>{value}</p></div>)}
+            {p.contents.length > 0 && <div className="detail-field"><span>Состав коллекции</span><ul>{p.contents.map((item) => <li key={item.productId}>{shop.data?.products.find((x) => x.id === item.productId)?.name || item.productId} × {item.qty}</li>)}</ul></div>}
+            {p.extras && <div className="detail-field"><span>Дополнительно</span><p>{p.extras}</p></div>}
+            <div className="product-detail-actions"><div><b>{rub(p.price)}</b><span>{p.availability === "in_stock" ? "В наличии" : p.availability === "out_of_stock" ? "Нет в наличии" : "Наличие уточняется"}</span></div><button className="btn" disabled={p.availability === "out_of_stock"} onClick={() => { cart.add(p.id); onClose(); }}>В корзину <ArrowUpRight size={16} /></button></div>
+            <Link className="detail-page-link" href={`/products/${p.id}`} onClick={onClose}>Открыть страницу позиции ↗</Link>
+          </div>
         </div>
       </div>
     </Modal>
