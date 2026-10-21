@@ -136,6 +136,75 @@ assert(message.includes("Тестовая Робусто 2") && message.includes
 delete process.env.TELEGRAM_BOT_TOKEN;
 pass("manager notification: failure is recorded without losing the request; retry delivers items/quantities; token never in message");
 
+// ---- 6b. Bulk CSV import/export of products; export of orders and customers
+const { parseCsv, toCsv, safeCell } = await import("../src/shared/csv");
+assert.deepEqual(parseCsv('\uFEFFa,b\n"x;1","he said ""hi""\nline2"\n'), [["a", "b"], ["x;1", 'he said "hi"\nline2']]);
+assert.deepEqual(parseCsv("a;b\r\n1;2\r\n\r\n3;\r\n"), [["a", "b"], ["1", "2"], ["3", ""]]);
+assert.deepEqual(parseCsv(toCsv([["n", "t"], ["Имя; с точкой", 'кавычка " тут']])), [["n", "t"], ["Имя; с точкой", 'кавычка " тут']]);
+assert.throws(() => parseCsv('a;b\n"open'));
+assert.equal(safeCell("=1+1"), "'=1+1"); assert.equal(safeCell("+79990001122"), "+79990001122"); assert.equal(safeCell("-5"), "-5"); assert.equal(safeCell("@cmd"), "'@cmd"); assert.equal(safeCell("+cmd|x"), "'+cmd|x");
+await owner.management.saveProduct({ ...base, id: "b-formula", name: "=HYPERLINK(\"http://x\")", price: 500, active: true });
+await rejectCode(() => anon.management.exportProducts({ template: false }), "UNAUTHORIZED");
+await rejectCode(() => anon.management.importProducts({ csv: "id;name\nA;B", dryRun: true }), "UNAUTHORIZED");
+const exported = await owner.management.exportProducts({ template: false });
+assert(exported.csv.startsWith("\uFEFFid;name;section;price")); assert(exported.csv.includes("'=HYPERLINK")); assert(exported.filename.endsWith(".csv"));
+assert((await owner.management.exportProducts({ template: true })).csv.includes("CIGAR_001"));
+const stripImages = (list: { image: string }[]) => JSON.stringify(list);
+const before = stripImages((await owner.management.catalog()).products);
+const roundTrip = await owner.management.importProducts({ csv: exported.csv, dryRun: false });
+assert.equal(roundTrip.errorCount, 0, JSON.stringify(roundTrip.errors)); assert.equal(roundTrip.created, 0); assert.equal(roundTrip.applied, true);
+assert.equal(stripImages((await owner.management.catalog()).products), before); // export → import changes nothing (formula guard undone)
+const ru = "Артикул;Название;Раздел;Цена;Наличие;Опубликован;Описание\r\nIMP-1;Сигара Импорт;Сигары;1 250,50;в наличии;да;Из CSV\r\nb-formula;Обновлённая;;777;;нет;\r\nIMP-SET;Набор из файла;Коллекции;3000;;да;Набор\r\n";
+const countProducts = async () => (await db.select().from(s.products)).length; const n0 = await countProducts();
+const preview = await owner.management.importProducts({ csv: ru, dryRun: true });
+assert.equal(preview.errorCount, 0, JSON.stringify(preview.errors)); assert.equal(preview.created, 2); assert.equal(preview.updated, 1); assert.equal(preview.applied, false); assert.equal(await countProducts(), n0);
+const applied = await owner.management.importProducts({ csv: ru, dryRun: false });
+assert.equal(applied.applied, true); assert.equal(await countProducts(), n0 + 2);
+const imported = (await owner.management.catalog()).products;
+const imp = imported.find(p => p.id === "IMP-1")!; assert.equal(imp.price, 1250.5); assert.equal(imp.section, "cigars"); assert.equal(imp.availability, "in_stock"); assert.equal(imp.active, true);
+const upd = imported.find(p => p.id === "b-formula")!; assert.equal(upd.name, "Обновлённая"); assert.equal(upd.price, 777); assert.equal(upd.active, false); assert.equal(upd.section, "cigars"); // empty section kept; description cleared
+assert((await anon.shop.catalog()).products.some(p => p.id === "IMP-1")); assert(!(await anon.shop.catalog()).products.some(p => p.id === "b-formula"));
+// all-or-nothing: one bad row blocks the whole file
+const n1 = await countProducts(); const priceBefore = (await owner.management.catalog()).products.find(p => p.id === "IMP-1")!.price;
+const bad = await owner.management.importProducts({ csv: "id;name;section;price;contents\nOK-1;Хорошая;cigars;100;\nIMP-1;Цена не число;cigars;abc;\nBAD-2;Раздел;wine;10;\nOK-1;Дубль;cigars;5;\nSET-X;Набор;sets;50;MISSING:1\nBAD ID;Пробел;cigars;1;", dryRun: false });
+assert.equal(bad.applied, false); assert(bad.errorCount >= 5, "errors: " + JSON.stringify(bad.errors)); assert(bad.errors.every(e => e.row >= 2));
+assert.equal(await countProducts(), n1); assert.equal((await owner.management.catalog()).products.find(p => p.id === "IMP-1")!.price, priceBefore);
+assert((await owner.management.importProducts({ csv: "foo;bar\n1;2", dryRun: true })).errorCount > 0);
+assert((await owner.management.importProducts({ csv: "id;name\n", dryRun: true })).errorCount > 0);
+const javascriptImage = await owner.management.importProducts({ csv: "id;name;section;price;image\nIMG-1;Фото;cigars;10;javascript:alert(1)", dryRun: true });
+assert(javascriptImage.errorCount > 0);
+const [set1] = [await owner.management.importProducts({ csv: "id;name;section;price;contents\nSET-OK;Набор;sets;900;IMP-1:2|OK-NEW:1\nOK-NEW;Новый;cigars;100;", dryRun: false })];
+assert.equal(set1.applied, true, JSON.stringify(set1.errors)); // a set may reference a product from the same file
+assert.deepEqual((await owner.management.catalog()).products.find(p => p.id === "SET-OK")!.contents, [{ productId: "IMP-1", qty: 2 }, { productId: "OK-NEW", qty: 1 }]);
+for (const id of ["SET-OK", "OK-NEW", "IMP-1", "IMP-SET", "b-formula"]) await owner.management.deleteProduct({ id });
+// orders / customers export: owner only, spreadsheet-safe, aggregated by phone
+const customers = await owner.management.exportOrders({ kind: "customers" });
+assert(customers.csv.startsWith("\uFEFFИмя;Телефон;Email;Заявок")); assert.equal(customers.count, 2); assert(customers.csv.includes("+79990001122")); assert(customers.csv.includes("Пётр Уведомляемый"));
+const ordersExport = await owner.management.exportOrders({ kind: "orders" });
+assert.equal(ordersExport.count, 2); assert(ordersExport.csv.includes("Тестовая Робусто 2 × 2")); assert(ordersExport.csv.includes("3200,00")); assert(ordersExport.csv.includes("Завершена")); assert(!ordersExport.csv.includes("PRIVATE_STAFF_NOTE"));
+await rejectCode(() => anon.management.exportOrders({ kind: "customers" }), "UNAUTHORIZED");
+const { createServer } = await import("node:net");
+const smtp = createServer(socket => { let buffer = "", inData = false; socket.write("220 mock\r\n"); socket.on("data", chunk => { buffer += chunk.toString();
+  while (buffer.includes("\r\n")) {
+    if (inData) { const end = buffer.indexOf("\r\n.\r\n"); if (end < 0) break; buffer = buffer.slice(end + 5); inData = false; socket.write("250 queued in local mock\r\n"); continue; }
+    const end = buffer.indexOf("\r\n"), line = buffer.slice(0, end); buffer = buffer.slice(end + 2);
+    if (line.startsWith("EHLO")) socket.write("250-localhost\r\n250 AUTH PLAIN LOGIN\r\n"); else if (line.startsWith("AUTH")) socket.write("235 OK\r\n");
+    else if (line.startsWith("DATA")) { inData = true; socket.write("354 send message\r\n"); } else if (line.startsWith("QUIT")) socket.end("221 bye\r\n"); else socket.write("250 OK\r\n");
+  } }); });
+await new Promise<void>(resolve => smtp.listen(0, "127.0.0.1", resolve));
+Object.assign(process.env, { SMTP_HOST: "127.0.0.1", SMTP_PORT: String((smtp.address() as { port: number }).port), SMTP_SECURE: "false", SMTP_ALLOW_INSECURE_LOCAL: "true", SMTP_USER: "test-user", SMTP_PASSWORD: "not-a-real-secret", SMTP_FROM: "sender@example.invalid" });
+const staffCreated = await owner.management.createAdmin({ name: "Export staff", email: "export-staff@example.invalid", ownerPassword: process.env.ADMIN_PASSWORD! });
+assert.equal(staffCreated.created, true);
+const [staffUser] = await db.select().from(s.user).where(eq(s.user.email, "export-staff@example.invalid"));
+const resetRow = (await db.select().from(s.verification)).find(row => row.value === staffUser.id && row.identifier.startsWith("reset-password:"))!;
+await auth.api.resetPassword({ body: { token: resetRow.identifier.slice("reset-password:".length), newPassword: "ExportStaffPassword-123!" } });
+const staffToken = (await auth.api.signInEmail({ body: { email: "export-staff@example.invalid", password: "ExportStaffPassword-123!" } })).token;
+const staffClient = rpc(staffToken);
+await staffClient.management.exportProducts({ template: false }); // administrators may export the catalogue
+await rejectCode(() => staffClient.management.exportOrders({ kind: "customers" }), "FORBIDDEN"); // but not customers' personal data
+await rejectCode(() => staffClient.management.exportOrders({ kind: "orders" }), "FORBIDDEN");
+pass("bulk CSV: export/import round trip is lossless; Russian headers; preview changes nothing; all-or-nothing; formulas neutralised; customers export is owner-only");
+
 // ---- 7. Intake switch and cascade rules
 await owner.management.saveIntegration({ enabled: false, chatId: "", telegramEnabled: true, emailEnabled: false, notifyEmail: "", documentsReady: true });
 assert.equal((await anon.shop.catalog()).ordersEnabled, false);

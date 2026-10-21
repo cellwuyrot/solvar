@@ -5,17 +5,18 @@ import { orpc } from "../lib/api";
 import { integrationSchema, orderStatusSchema, statusLabels } from "../../shared/orders";
 import { rub } from "../../shared/catalog-display";
 import type { AppRouterClient } from "../../api";
+import { OrderExportButtons } from "./admin-bulk";
 type Order = Awaited<ReturnType<AppRouterClient["management"]["orders"]>>["orders"][number];
 type Integration = Awaited<ReturnType<AppRouterClient["management"]["integration"]>>;
 const err = (e: unknown) => e instanceof Error ? e.message : "Ошибка операции";
 const labels: Record<string, string> = { pending: "в очереди", sending: "отправляется", failed: "ошибка", sent: "принято провайдером; доставка адресату не подтверждена", disabled: "выключено" };
-export function AdminOrders() {
+export function AdminOrders({ role }: { role: "owner" | "admin" }) {
   const [offset, setOffset] = useState(0), [search, setSearch] = useState(""), [status, setStatus] = useState("");
   const q = useQuery(orpc.management.orders.queryOptions({ input: { offset, search, status: status ? orderStatusSchema.parse(status) : "" }, refetchInterval: 30000 }));
   const config = useQuery(orpc.management.integration.queryOptions());
   return <div className="space-y-6">
     {config.isPending ? <p>Загрузка настроек…</p> : config.isError ? <p className="error">{err(config.error)}</p> : <IntegrationEditor key={JSON.stringify(config.data)} initial={config.data!} />}
-    <section className="admin-form space-y-3"><h2 className="serif text-3xl">Архив обращений</h2>
+    <section className="admin-form space-y-3"><h2 className="serif text-3xl">Архив обращений</h2>{role === "owner" && <OrderExportButtons />}
       <div className="grid gap-3 sm:grid-cols-2"><input className="field" aria-label="Поиск заявок" placeholder="Имя, телефон или номер заявки" maxLength={100} value={search} onChange={e => { setSearch(e.target.value); setOffset(0); }} /><select className="field" aria-label="Фильтр статуса" value={status} onChange={e => { setStatus(e.target.value); setOffset(0); }}><option value="">Все статусы</option>{orderStatusSchema.options.map(v => <option key={v} value={v}>{statusLabels[v]}</option>)}</select></div>
     </section>
     {q.isPending ? <p>Загрузка…</p> : q.isError ? <p className="error">{err(q.error)}</p> : !q.data!.orders.length ? <p>Заявок не найдено.</p> : q.data!.orders.map(order => <OrderCard key={order.id} order={order} />)}
