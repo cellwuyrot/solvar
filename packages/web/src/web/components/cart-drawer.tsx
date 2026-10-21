@@ -136,35 +136,7 @@ export function CartDrawer() {
               <span>Итого</span>
               <span>{rub(c.total + fee)}</span>
             </div>
-            {q.data?.ordersEnabled ? (
-              <OrderCheckout totalKopecks={c.lines.reduce((sum, l) => sum + Math.round(l.product.price * 100) * l.qty, 0) + Math.round(fee * 100)} onAccepted={setReceipt} onBusy={setSubmitting} />
-            ) : (<>
-            <p className="mb-4 text-sm leading-6 text-muted">
-              Резервирование через сайт временно недоступно. Корзина сохраняется — свяжитесь с
-              магазином для уточнения наличия и оформления.
-            </p>
-            {q.data?.settings.phone ? (
-              <a
-                className="btn w-full"
-                href={`tel:${q.data.settings.phone.replace(/[^+\d]/g, "")}`}
-              >
-                Заказать по телефону
-              </a>
-            ) : q.data?.settings.telegram ? (
-              <a
-                target="_blank"
-                rel="noreferrer"
-                className="btn w-full"
-                href={q.data.settings.telegram}
-              >
-                Связаться в Telegram
-              </a>
-            ) : (
-              <button className="btn w-full" disabled>
-                Контакты магазина скоро
-              </button>
-            )}
-            </>)}
+            <OrderCheckout available={!!q.data?.ordersEnabled} totalKopecks={c.lines.reduce((sum, l) => sum + Math.round(l.product.price * 100) * l.qty, 0) + Math.round(fee * 100)} onAccepted={setReceipt} onBusy={setSubmitting} />
           </div>
         )}
       </dialog>

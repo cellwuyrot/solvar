@@ -1,4 +1,3 @@
-import { COMMERCE_ENABLED } from "../../shared/site-policy";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { orpc } from "../lib/api";
@@ -13,11 +12,11 @@ const labels: Record<string, string> = { pending: "в очереди", sending: 
 export function AdminOrders({ role }: { role: "owner" | "admin" }) {
   const [offset, setOffset] = useState(0), [search, setSearch] = useState(""), [status, setStatus] = useState("");
   const q = useQuery(orpc.management.orders.queryOptions({ input: { offset, search, status: status ? orderStatusSchema.parse(status) : "" }, refetchInterval: 30000 }));
-  const config = useQuery(orpc.management.integration.queryOptions());
+  const config = useQuery(orpc.management.integration.queryOptions({ enabled: role === "owner" }));
   return <div className="space-y-6">
-    {config.isPending ? <p>Загрузка настроек…</p> : config.isError ? <p className="error">{err(config.error)}</p> : <IntegrationEditor key={JSON.stringify(config.data)} initial={config.data!} />}
+    {role === "owner" && (config.isPending ? <p>Загрузка настроек…</p> : config.isError ? <p className="error">{err(config.error)}</p> : <IntegrationEditor key={JSON.stringify(config.data)} initial={config.data!} />)}
     <section className="admin-form space-y-3"><h2 className="serif text-3xl">Архив обращений</h2>{role === "owner" && <OrderExportButtons />}
-      <div className="grid gap-3 sm:grid-cols-2"><input className="field" aria-label="Поиск заявок" placeholder="Имя, телефон или номер заявки" maxLength={100} value={search} onChange={e => { setSearch(e.target.value); setOffset(0); }} /><select className="field" aria-label="Фильтр статуса" value={status} onChange={e => { setStatus(e.target.value); setOffset(0); }}><option value="">Все статусы</option>{orderStatusSchema.options.map(v => <option key={v} value={v}>{statusLabels[v]}</option>)}</select></div>
+      <div className="grid gap-3 sm:grid-cols-2"><input className="field" aria-label="Поиск заявок" placeholder="Имя, телефон, email, Telegram или номер заявки" maxLength={100} value={search} onChange={e => { setSearch(e.target.value); setOffset(0); }} /><select className="field" aria-label="Фильтр статуса" value={status} onChange={e => { setStatus(e.target.value); setOffset(0); }}><option value="">Все статусы</option>{orderStatusSchema.options.map(v => <option key={v} value={v}>{statusLabels[v]}</option>)}</select></div>
     </section>
     {q.isPending ? <p>Загрузка…</p> : q.isError ? <p className="error">{err(q.error)}</p> : !q.data!.orders.length ? <p>Заявок не найдено.</p> : q.data!.orders.map(order => <OrderCard key={order.id} order={order} />)}
     <div className="flex gap-3"><button className="btn" disabled={!offset} onClick={() => setOffset(Math.max(0, offset - 50))}>Назад</button><span className="self-center">Страница {offset / 50 + 1}</span><button className="btn" disabled={!q.data?.hasMore} onClick={() => setOffset(offset + 50)}>Далее</button></div>
@@ -30,25 +29,35 @@ function OrderCard({ order }: { order: Order }) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const history = useQuery(orpc.management.orderHistory.queryOptions({ input: { id: order.id }, enabled: historyOpen }));
   const update = useMutation(orpc.management.setOrderStatus.mutationOptions({ onSuccess: refresh }));
+  const claim = useMutation(orpc.management.claimOrder.mutationOptions({ onSuccess: refresh }));
   const saveNote = useMutation(orpc.management.setAdminNote.mutationOptions({ onSuccess: () => { setDirty(false); void refresh(); } }));
   const retry = useMutation(orpc.management.retryNotification.mutationOptions({ onSuccess: refresh }));
   const remove = useMutation(orpc.management.deleteClosedOrder.mutationOptions({ onSuccess: refresh }));
   useEffect(() => { if (!dirty) { setNote(order.adminNote); setNoteVersion(order.version); } }, [order.adminNote, order.version, dirty]);
   return <article className="admin-form space-y-3" data-order-id={order.id}>
     <div className="flex flex-wrap justify-between gap-2"><b className="break-all">№ {order.id}</b><time>{new Date(order.createdAt).toLocaleString("ru-RU")}</time></div>
-    <p>{order.data.name} · <a className="underline" href={`tel:${order.data.phone}`}>{order.data.phone}</a>{order.data.email && <> · <a className="underline" href={`mailto:${order.data.email}`}>{order.data.email}</a></>}</p>
-    {order.data.comment && <p className="whitespace-pre-wrap">{order.data.comment}</p>}
+    <div className="space-y-1 text-sm">
+      <p><b>Клиент:</b> {order.data.name}</p>
+      <p><b>Телефон:</b> <a className="underline" href={`tel:${order.data.phone}`}>{order.data.phone}</a></p>
+      {order.data.preferredTime && <p><b>Удобное время связи:</b> {order.data.preferredTime}</p>}
+      {order.data.email && <p><b>Email:</b> <a className="underline" href={`mailto:${order.data.email}`}>{order.data.email}</a></p>}
+      {order.data.telegram && <p><b>Telegram:</b> {order.data.telegram.replace(/^@/, "") ? <a className="underline" href={`https://t.me/${order.data.telegram.replace(/^@/, "")}`} target="_blank" rel="noreferrer">{order.data.telegram.startsWith("@") ? order.data.telegram : `@${order.data.telegram}`}</a> : order.data.telegram}</p>}
+      <p><b>Взял в работу:</b> {order.assignedTo || "Не назначена"}</p>
+      {order.data.comment && <p className="whitespace-pre-wrap"><b>Комментарий клиента:</b> {order.data.comment}</p>}
+    </div>
     <ul>{order.data.items.map(item => <li key={item.productId}>{item.name} × {item.qty} — {rub(item.priceKopecks * item.qty / 100)}</li>)}</ul>
     <p>Предварительная доставка: {rub(order.data.deliveryKopecks / 100)}. <b>Итого: {rub(order.data.totalKopecks / 100)}</b></p>
+    {!order.assignedTo && !["completed", "cancelled"].includes(order.status) && <button className="btn" disabled={claim.isPending} onClick={() => claim.mutate({ id: order.id, version: order.version })}>{claim.isPending ? "Назначаем…" : "Взять заявку в работу"}</button>}
+    {claim.data && <p role="status" className={claim.data.telegramSent < claim.data.telegramTotal ? "text-sm text-amber-800" : "text-sm text-muted"}>{claim.data.telegramTotal ? `Заявка назначена: ${claim.data.assignedTo}. Уведомления Telegram: ${claim.data.telegramSent} из ${claim.data.telegramTotal}.` : `Заявку взял ${claim.data.assignedTo}. Chat ID для Telegram-уведомлений не настроены.`}</p>}
     <label className="field-label">Статус заявки<select aria-label="Статус заявки" className="field mt-1" value={order.status} disabled={update.isPending} onChange={e => update.mutate({ id: order.id, version: order.version, status: orderStatusSchema.parse(e.target.value) })}>{orderStatusSchema.options.map(v => <option key={v} value={v}>{statusLabels[v]}</option>)}</select></label>
     <label className="field-label">Внутренняя заметка администратора<textarea className="field mt-1" aria-label="Внутренняя заметка администратора" rows={3} maxLength={5000} value={note} onChange={e => { setDirty(true); setNote(e.target.value); }} /></label>
     <div className="flex flex-wrap gap-3"><button className="btn" disabled={!dirty || saveNote.isPending} onClick={() => saveNote.mutate({ id: order.id, version: noteVersion, note })}>Сохранить заметку</button>{dirty && <button className="btn btn-outline" onClick={() => { if (confirm("Заменить несохранённую заметку значением из базы?")) { setDirty(false); setNote(order.adminNote); setNoteVersion(order.version); } }}>Загрузить заметку из базы</button>}</div>
     <p className="text-xs text-muted">Заметка доступна только в админке: она не включается в уведомления и не отправляется покупателю.</p>
-    {COMMERCE_ENABLED && <PaymentEditor order={order} />}
+    <PaymentEditor order={order} />
     {(["telegram", "email"] as const).map(channel => { const state = channel === "telegram" ? order.notification : order.emailNotification; const error = channel === "telegram" ? order.notificationError : order.emailError; const attempts = channel === "telegram" ? order.telegramAttempts : order.emailAttempts;
-      return <div key={channel} className="border-t pt-3 text-sm"><p>{channel === "telegram" ? "Telegram" : "Почта"}: {labels[state] || state} · попыток: {attempts}</p>{error && <p className="error">{error}</p>}{COMMERCE_ENABLED && state !== "sent" && <button className="btn mt-2" disabled={retry.isPending} onClick={() => retry.mutate({ id: order.id, channel })}>Повторить: {channel === "telegram" ? "Telegram" : "почта"}</button>}</div>; })}
+      return <div key={channel} className="border-t pt-3 text-sm"><p>{channel === "telegram" ? "Telegram" : "Почта"}: {labels[state] || state} · попыток: {attempts}</p>{error && <p className="error">{error}</p>}{state !== "sent" && <button className="btn mt-2" disabled={retry.isPending} onClick={() => retry.mutate({ id: order.id, channel })}>Повторить: {channel === "telegram" ? "Telegram" : "почта"}</button>}</div>; })}
     <p className="text-xs text-muted">Уведомления отправляются в фоне; при ошибке канала заявка остаётся сохранённой, повторить отправку можно кнопкой.</p>
-    {(update.error || saveNote.error || retry.error || remove.error) && <p role="alert" className="error">{err(update.error || saveNote.error || retry.error || remove.error)}</p>}
+    {(claim.error || update.error || saveNote.error || retry.error || remove.error) && <p role="alert" className="error">{err(claim.error || update.error || saveNote.error || retry.error || remove.error)}</p>}
     {retry.data && retry.data.notification !== "sent" && <p className="error">{retry.data.error || "Канал выключен или отправка ещё выполняется"}</p>}
     <button className="underline text-sm" onClick={() => setHistoryOpen(!historyOpen)}>{historyOpen ? "Скрыть историю" : "История изменений"}</button>
     {historyOpen && <div className="text-xs space-y-1">{history.isError ? <p className="error">{err(history.error)}</p> : history.data?.map(h => <p key={h.id}>{new Date(h.at).toLocaleString("ru-RU")} · {h.actor} · {h.action}</p>)}</div>}
@@ -76,16 +85,17 @@ function IntegrationEditor({ initial }: { initial: Integration }) {
   const [form, setForm] = useState(integrationSchema.parse(initial)); const cache = useQueryClient();
   const save = useMutation(orpc.management.saveIntegration.mutationOptions({ onSuccess: () => cache.invalidateQueries() }));
   const telegram = useMutation(orpc.management.testTelegram.mutationOptions()), email = useMutation(orpc.management.testEmail.mutationOptions());
-  return <section className="admin-form space-y-4"><h2 className="serif text-3xl">Telegram / почта и защита заявок</h2>
+  return <section className="admin-form space-y-4"><h2 className="serif text-3xl">Уведомления и приём заявок</h2>
     <p className="text-sm">Серверные настройки: Telegram {initial.tokenConfigured ? "задан" : "не задан"}; SMTP {initial.smtpConfigured ? "задан" : "не задан"}; CAPTCHA {initial.captchaRequired ? initial.captchaConfigured ? "обязательна и настроена" : "обязательна, ключей нет" : "не обязательна"}. Секреты не передаются в браузер.</p>
+    <p className="text-sm text-muted">Юридическая отметка больше не блокирует приём заявок. Если CAPTCHA обязательна для текущего окружения, для включения приёма понадобятся её серверные ключи.</p>
     <label className="flex gap-2"><input type="checkbox" checked={form.telegramEnabled} onChange={e => setForm({ ...form, telegramEnabled: e.target.checked })} />Уведомления в Telegram</label>
-    <label className="field-label">Chat ID личного чата<input className="field" maxLength={30} value={form.chatId} onChange={e => setForm({ ...form, chatId: e.target.value })} /></label>
+    <label className="field-label">Chat ID администраторов (по одному на строку или через запятую)<textarea className="field mt-1" rows={3} maxLength={1000} value={form.adminChatIds} onChange={e => setForm({ ...form, adminChatIds: e.target.value })} placeholder={"426852173\n-1001234567890"} /></label>
+    <details className="text-sm text-muted"><summary className="cursor-pointer underline">Совместимость со старой настройкой</summary><label className="field-label mt-2">Основной Chat ID (старое поле)<input className="field mt-1" maxLength={30} value={form.chatId} onChange={e => setForm({ ...form, chatId: e.target.value })} /></label></details>
     <label className="flex gap-2"><input type="checkbox" checked={form.emailEnabled} onChange={e => setForm({ ...form, emailEnabled: e.target.checked })} />Уведомления на почту</label>
     <label className="field-label">Почта администратора для уведомлений<input className="field" type="email" maxLength={254} value={form.notifyEmail} onChange={e => setForm({ ...form, notifyEmail: e.target.value })} /></label>
-    <label className="flex gap-2 text-sm"><input type="checkbox" checked={form.documentsReady} onChange={e => setForm({ ...form, documentsReady: e.target.checked })} />Реквизиты, условия продажи и политика обработки данных заполнены; передача данных проверена.</label>
-    <label className="flex gap-2 text-sm"><input type="checkbox" disabled={!COMMERCE_ENABLED} checked={COMMERCE_ENABLED && form.enabled} onChange={e => setForm({ ...form, enabled: e.target.checked })} />Включить приём заявок</label>
-    <div className="flex flex-wrap gap-3"><button className="btn" disabled={save.isPending} onClick={() => { const parsed = integrationSchema.safeParse(form); if (parsed.success) save.mutate(parsed.data); else alert(parsed.error.issues[0].message); }}>Сохранить настройки</button><button className="btn" disabled={telegram.isPending || !initial.chatId || !initial.tokenConfigured} onClick={() => telegram.mutate(undefined)}>Тест Telegram</button><button className="btn" disabled={email.isPending || !initial.notifyEmail || !initial.smtpConfigured} onClick={() => email.mutate(undefined)}>Тест почты</button></div>
-    {(save.error || telegram.error || email.error) && <p className="error">{err(save.error || telegram.error || email.error)}</p>}{(telegram.isSuccess || email.isSuccess) && <p role="status">Провайдер принял тестовое сообщение. Доставка адресату не подтверждена.</p>}
+    <label className="flex gap-2 text-sm"><input type="checkbox" checked={form.enabled} onChange={e => setForm({ ...form, enabled: e.target.checked })} />Включить приём заявок</label>
+    <div className="flex flex-wrap gap-3"><button className="btn" disabled={save.isPending} onClick={() => { const parsed = integrationSchema.safeParse(form); if (parsed.success) save.mutate({ ...parsed.data, documentsReady: true }); else alert(parsed.error.issues[0].message); }}>Сохранить настройки</button><button className="btn" disabled={telegram.isPending || !initial.testNotificationsAvailable || !(initial.chatId || initial.adminChatIds.trim()) || !initial.tokenConfigured} onClick={() => telegram.mutate(undefined)}>Тест Telegram</button><button className="btn" disabled={email.isPending || !initial.testNotificationsAvailable || !initial.notifyEmail || !initial.smtpConfigured} onClick={() => email.mutate(undefined)}>Тест почты</button></div>
+    {(save.error || telegram.error || email.error) && <p className="error">{err(save.error || telegram.error || email.error)}</p>}{telegram.isSuccess && <p role="status">Telegram принял тестовое сообщение для всех настроенных Chat ID.</p>}{email.isSuccess && <p role="status">SMTP принял тестовое письмо. Доставка адресату не подтверждена.</p>}{!initial.testNotificationsAvailable && <p className="text-xs text-muted">Тестовые отправки разрешены только в staging-среде.</p>}
     <p className="text-xs text-muted">Одна активная заявка на телефон или браузер; повторы и лимиты хранятся в БД. Защиту от объёмного DDoS дополнительно включите у хостера/CDN.</p>
   </section>;
 }

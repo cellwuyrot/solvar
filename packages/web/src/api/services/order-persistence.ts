@@ -1,4 +1,3 @@
-import { requireCommerce } from "./commerce-policy";
 import { databaseRetry } from "./database-retry";
 import { and, eq, sql } from "drizzle-orm";
 import { ORPCError } from "@orpc/server";
@@ -7,7 +6,6 @@ import * as s from "../database/schema";
 import type { OrderSnapshot } from "../../shared/orders";
 import { normalizePhone, privateHash } from "./order-security";
 export async function persistOrder(id: string, requestHash: string, device: string, data: OrderSnapshot, telegram: boolean, email: boolean) {
-  requireCommerce();
   const now = new Date().toISOString();
   return databaseRetry(() => db.transaction(async tx => {
     const [existing] = await tx.select().from(s.orders).where(eq(s.orders.id, id));
