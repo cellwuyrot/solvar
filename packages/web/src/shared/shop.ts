@@ -16,7 +16,7 @@ export const productSchema = z.object({
   brand: z.string().max(120).default(""),
   sub: z.string().max(1500).default(""),
   description: z.string().max(6000).default(""),
-  weight: z.string().max(100).default(""),
+  weight: z.string().max(1000).default(""),
   price: z.number().nonnegative().max(1000000),
   oldPrice: z.number().nonnegative().max(1000000).nullable().default(null),
   spice: z.number().int().min(0).max(5).default(0),
