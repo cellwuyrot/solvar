@@ -70,7 +70,7 @@ export function CartDrawer() {
         </div>
         <div className="flex-1 min-h-24 overflow-y-auto p-6">
           {receipt ? (
-            <div role="status" className="py-8"><h3 className="serif text-3xl">Резерв оформлен</h3><p className="mt-4 text-sm break-all">Номер заявки: {receipt}</p><p className="mt-3 text-sm">Ожидайте обратной связи по оформлению: продавец свяжется с вами, подтвердит наличие и условия. Оплата не списывалась.</p><button className="btn mt-5" onClick={() => { setReceipt(""); c.setOpen(false); }}>Готово</button></div>
+            <div role="status" className="py-8"><h3 className="serif text-3xl">Резерв оформлен</h3><p className="mt-4 text-sm break-all">Номер заявки: {receipt}</p><p className="mt-3 text-sm">Ожидайте обратной связи по оформлению: продавец свяжется с вами, подтвердит наличие и условия.</p><button className="btn mt-5" onClick={() => { setReceipt(""); c.setOpen(false); }}>Готово</button></div>
           ) : !c.lines.length ? (
             <div className="py-20 text-center">
               <ShoppingBag className="mx-auto text-gold" size={32} />
