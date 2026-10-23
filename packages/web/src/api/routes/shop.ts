@@ -11,6 +11,7 @@ import { invalidatePageCache } from "../services/page-seo";
 import { httpsImage, productRuleError } from "../services/product-rules";
 import { MAX_IMPORT_BYTES, parseProductImport, productsToCsv, productTemplateCsv } from "../services/product-csv";
 import { matchImageName } from "../services/image-matching";
+import { planDuplicateRemoval, duplicatePlanFingerprint } from "../services/product-duplicates";
 import { captchaRequired } from "../services/order-security";
 import { ordersAvailable } from "../services/orders";
 async function list() {
@@ -81,6 +82,25 @@ export const management = {
     });
     invalidatePageCache();
     return { ...summary, applied: true };
+  }),
+  previewDuplicates: admin.handler(async () => {
+    const groups = planDuplicateRemoval(await list());
+    return { groups, removable: groups.reduce((sum, group) => sum + group.removeIds.length, 0), fingerprint: duplicatePlanFingerprint(groups) };
+  }),
+  removeDuplicates: admin.input(z.object({ fingerprint: z.string().max(1000000) })).handler(async ({ input }) => {
+    // Compute and delete inside one transaction to avoid deleting recently modified products.
+    const removed = await db.transaction(async tx => {
+      const rows = await tx.select().from(s.products);
+      const products = rows.map(row => productSchema.parse(JSON.parse(row.data)));
+      const groups = planDuplicateRemoval(products);
+      if (duplicatePlanFingerprint(groups) !== input.fingerprint)
+        throw new ORPCError("CONFLICT", { message: "Каталог изменился. Обновите список дублей перед удалением." });
+      const ids = groups.flatMap(group => group.removeIds);
+      for (const id of ids) await tx.delete(s.products).where(eq(s.products.id, id));
+      return ids.length;
+    });
+    if (removed) invalidatePageCache();
+    return { removed };
   }),
   deleteProduct: admin.input(z.object({ id: z.string() })).handler(async ({ input }) => {
     const all = await list();
