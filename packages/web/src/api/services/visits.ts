@@ -7,7 +7,7 @@ import { visitConfigSchema } from "../../shared/visits";
 import { captchaConfigured } from "./order-security";
 import { sendTelegram } from "./orders";
 import { databaseRetry } from "./database-retry";
-export const visitCaptchaRequired = () => process.env.VISIT_CAPTCHA_REQUIRED !== "false";
+export const visitCaptchaRequired = () => process.env.VISIT_CAPTCHA_REQUIRED === "true";
 export const policyHash = (text: string) => createHash("sha256").update(text).digest("hex");
 export async function getVisitConfig() {
   const [row] = await db.select().from(s.visitConfig).where(eq(s.visitConfig.id, "main"));
@@ -18,8 +18,10 @@ export async function visitPublicConfig() {
   const [row] = await db.select().from(s.settings).where(eq(s.settings.id, "main"));
   const settings = settingsSchema.parse(JSON.parse(row?.data || "{}"));
   const privacy = settings.privacy.trim();
-  const ready = !!settings.address.trim() && privacy.length >= 50 && (!visitCaptchaRequired() || captchaConfigured());
-  return { enabled: config.enabled && ready, ready, address: settings.address, hours: settings.hours, privacy, policyHash: policyHash(privacy), captchaRequired: visitCaptchaRequired(), captchaSiteKey: visitCaptchaRequired() ? process.env.TURNSTILE_SITE_KEY || "" : "" };
+  // Contact details and policy content are shown to visitors, but do not gate activation.
+  // Turnstile is opt-in: set VISIT_CAPTCHA_REQUIRED=true and configure both keys to require it.
+  const ready = !visitCaptchaRequired() || captchaConfigured();
+  return { enabled: config.enabled, ready, address: settings.address, hours: settings.hours, privacy, policyHash: policyHash(privacy), captchaRequired: visitCaptchaRequired(), captchaSiteKey: visitCaptchaRequired() ? process.env.TURNSTILE_SITE_KEY || "" : "" };
 }
 let ticking = false;
 export async function tickVisitNotifications() {

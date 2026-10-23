@@ -10,6 +10,7 @@ import { productSchema, settingsSchema } from "../../shared/shop";
 import { invalidatePageCache } from "../services/page-seo";
 import { httpsImage, productRuleError } from "../services/product-rules";
 import { MAX_IMPORT_BYTES, parseProductImport, productsToCsv, productTemplateCsv } from "../services/product-csv";
+import { matchImageName } from "../services/image-matching";
 import { captchaRequired } from "../services/order-security";
 import { ordersAvailable } from "../services/orders";
 async function list() {
@@ -50,6 +51,20 @@ export const management = {
       .onConflictDoUpdate({ target: s.products.id, set: { data: JSON.stringify(input) } });
     invalidatePageCache();
     return input;
+  }),
+  checkImageByName: admin.input(z.object({ filename: z.string().min(1).max(255) })).handler(async ({ input }) => {
+    const match = matchImageName(input.filename, await list());
+    return { status: match.kind };
+  }),
+  assignImageByName: admin.input(z.object({ filename: z.string().min(1).max(255), image: z.string().startsWith("data:image/webp;base64,").max(3000000) })).handler(async ({ input }) => {
+    const products = await list();
+    const match = matchImageName(input.filename, products);
+    if (match.kind !== "matched") return { status: match.kind };
+    // Conditional update prevents overwriting an image added by another administrator.
+    const rows = await db.all(sql`UPDATE shop_products SET data = json_set(data, '$.image', ${input.image}) WHERE id = ${match.product.id} AND COALESCE(json_extract(data, '$.image'), '') = '' RETURNING id`);
+    if (!rows.length) return { status: "skipped" as const };
+    invalidatePageCache();
+    return { status: "assigned" as const, name: match.product.name };
   }),
   exportProducts: admin.input(z.object({ template: z.boolean().default(false) })).handler(async ({ input }) => {
     const products = input.template ? [] : await list();

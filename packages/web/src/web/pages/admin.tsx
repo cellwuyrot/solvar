@@ -44,6 +44,7 @@ import { AdminMembers } from "../components/admin-members";
 import { AdminVisits, StaffPassword } from "../components/admin-visits";
 import { ManagerMembers } from "../components/manager-members";
 import { AdminOrders } from "../components/admin-orders";
+import { AdminImageBulk } from "../components/admin-image-bulk";
 import { ProductBulkTools } from "../components/admin-bulk";
 function errorText(error: unknown) {
   return error instanceof Error ? error.message : "Не удалось выполнить действие";
@@ -234,7 +235,7 @@ function Dashboard({ email, role, userId, onLogout }: { email: string; userId: s
             </button>
           )}
         </div>
-        {(tab === "products" || tab === "sets") && <ProductBulkTools />}
+        {(tab === "products" || tab === "sets") && <><AdminImageBulk /><ProductBulkTools /></>}
         {q.isPending ? (
           <div className="spinner" />
         ) : q.isError ? (

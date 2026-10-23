@@ -57,7 +57,7 @@ export function ingressAllowed(ip: string, bucket: string, max: number, windowMs
   entry.hits++; ingress.set(key, entry);
   return entry.hits <= max;
 }
-export const captchaRequired = () => process.env.ORDER_CAPTCHA_REQUIRED === "true" || (process.env.NODE_ENV === "production" && process.env.ORDER_CAPTCHA_REQUIRED !== "false");
+export const captchaRequired = () => process.env.ORDER_CAPTCHA_REQUIRED === "true";
 export const captchaConfigured = () => !!process.env.TURNSTILE_SITE_KEY && !!process.env.TURNSTILE_SECRET_KEY;
 export async function verifyCaptcha(token: string, ip: string, action = "order", required = captchaRequired()) {
   if (!required) return;
