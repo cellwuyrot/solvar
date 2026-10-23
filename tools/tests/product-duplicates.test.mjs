@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { duplicateNameKey, planDuplicateRemoval, duplicatePlanFingerprint } from '../../packages/web/src/api/services/product-duplicates.ts';
+const p = (id, name, opts = {}) => ({id, name, image:'', active:true, contents:[], ...opts});
+test('name normalization handles case, unicode and whitespace', () => assert.equal(duplicateNameKey('  КРЕМ   ДЛЯ\nЛИЦА  '), duplicateNameKey('крем для лица')));
+test('no duplicates results in no removals', () => assert.deepEqual(planDuplicateRemoval([p('a','A'),p('b','B')]), []));
+test('keeps image-equipped product', () => { const [g] = planDuplicateRemoval([p('a','крем'), p('b','КРЕМ', { image:'url' })]); assert.equal(g.keepId,'b'); assert.deepEqual(g.removeIds,['a']); });
+test('prioritizes referenced item and never deletes referenced products', () => { const [g] = planDuplicateRemoval([p('a','Cream',{image:'url'}), p('b','cream'), p('set','Set',{contents:[{productId:'b',qty:1}]})]); assert.equal(g.keepId,'b'); assert.deepEqual(g.removeIds,['a']); });
+test('blocks group with multiple referenced items', () => { const [g] = planDuplicateRemoval([p('a','Cream'),p('b','cream'),p('set','Set',{contents:[{productId:'a',qty:1},{productId:'b',qty:1}]})]); assert.equal(g.blocked,true); assert.deepEqual(g.removeIds,[]); });
+test('preview fingerprint changes when selection changes', () => { const first = planDuplicateRemoval([p('a','Cream'),p('b','cream')]); const second = planDuplicateRemoval([p('a','Cream'),p('b','cream',{image:'url'})]); assert.notEqual(duplicatePlanFingerprint(first), duplicatePlanFingerprint(second)); });
