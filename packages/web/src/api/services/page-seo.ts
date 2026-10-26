@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "../database";
 import * as s from "../database/schema";
-import { productSchema, settingsSchema, SECTIONS, type Product, type Settings } from "../../shared/shop";
+import { productSchema, normalizeSettings, SECTIONS, type Product, type Settings } from "../../shared/shop";
 
 let cache: { at: number; products: Product[]; settings: Settings } | undefined;
 export function invalidatePageCache() { cache = undefined; }
@@ -15,7 +15,7 @@ export async function pageCatalog() {
       .map(row => productSchema.parse(JSON.parse(row.data)))
       .filter(p => p.active)
       .sort((a, b) => a.sort - b.sort);
-    cache = { at: Date.now(), products, settings: settingsSchema.parse(JSON.parse(settings.data)) };
+    cache = { at: Date.now(), products, settings: normalizeSettings(JSON.parse(settings.data)) };
   }
   return cache;
 }

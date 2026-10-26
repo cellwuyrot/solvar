@@ -7,7 +7,7 @@ import type { SectionId } from "../../shared/shop";
 import { useShop } from "../queries/shop";
 import { useCart } from "./cart-context";
 
-const nav: SectionId[] = ["cigars", "tobacco", "accessories", "sets"];
+const nav: SectionId[] = ["cigars", "tobacco", "cigarettes", "accessories", "sets"];
 
 export function Logo() {
   const q = useShop();
@@ -82,7 +82,6 @@ export function Header() {
       {menu && (
         <nav id="mobile-navigation" className="mobile-nav container" aria-label="Мобильная навигация">
           {nav.map((id) => <a onClick={() => setMenu(false)} href={`/collections/${id}`} key={id}>{SECTIONS[id].title}<MoveUpRight size={14} /></a>)}
-          <Link href="/admin" onClick={() => setMenu(false)}>Вход администратора</Link>
         </nav>
       )}
       {searchOpen && (

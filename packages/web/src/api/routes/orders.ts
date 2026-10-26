@@ -27,7 +27,7 @@ export const orderPublic = {
     const [existing] = await db.select().from(s.orders).where(eq(s.orders.id, requestId));
     if (existing) {
       if (existing.requestHash !== requestHash) throw new ORPCError("CONFLICT", { message: "Создайте новую заявку" });
-      return { id: requestId, accepted: true };
+      return { id: requestId, number: existing.orderNumber, accepted: true };
     }
     if (!await ordersAvailable()) throw new ORPCError("PRECONDITION_FAILED", { message: "Приём заявок пока отключён" });
     await persistentRate("phone:" + payload.phone, 3, 600000);
@@ -37,8 +37,10 @@ export const orderPublic = {
     const data = await makeSnapshot(payload);
     const config = await getIntegration();
     await persistOrder(requestId, requestHash, device, data, config.telegramEnabled && tokenConfigured() && getOrderChatIds(config).length > 0, config.emailEnabled && smtpConfigured() && !!config.notifyEmail);
+    const [saved] = await db.select({ orderNumber: s.orders.orderNumber }).from(s.orders).where(eq(s.orders.id, requestId));
+    if (!saved) throw new ORPCError("INTERNAL_SERVER_ERROR", { message: "Заявка не найдена после сохранения" });
     // Delivery is picked up by the durable worker, not awaited in the buyer's HTTP request.
-    return { id: requestId, accepted: true };
+    return { id: requestId, number: saved.orderNumber, accepted: true };
   }),
 };
 export const orderManagement = {
@@ -78,9 +80,11 @@ export const orderManagement = {
     .handler(({ input }) => listOrders(input.offset, input.search, input.status)),
   claimOrder: admin.input(editSchema).handler(async ({ input, context }) => {
     const actor = context.user.email;
+    let publicOrderNumber = 0;
     await databaseRetry(() => db.transaction(async tx => {
       const [row] = await tx.select().from(s.orders).where(eq(s.orders.id, input.id));
       if (!row) throw new ORPCError("NOT_FOUND", { message: "Заявка не найдена" });
+      publicOrderNumber = row.orderNumber;
       if (row.version !== input.version) throw new ORPCError("CONFLICT", { message: "Заявка обновлена. Перезагрузите список." });
       if (row.assignedTo) throw new ORPCError("CONFLICT", { message: `Эту заявку уже взял ${row.assignedTo}` });
       if (["completed", "cancelled"].includes(row.status)) throw new ORPCError("CONFLICT", { message: "Закрытую заявку нельзя взять в работу" });
@@ -93,7 +97,7 @@ export const orderManagement = {
     const chatIds = config.telegramEnabled && tokenConfigured() ? getOrderChatIds(config) : [];
     let sent = 0;
     await Promise.all(chatIds.map(async chatId => {
-      try { await sendTelegram(chatId, `SOLVAR: заявку № ${input.id} взял администратор ${actor}.`); sent++; }
+      try { await sendTelegram(chatId, `SOLVAR: заявку № ${publicOrderNumber} взял администратор ${actor}.`); sent++; }
       catch { /* Assignment is saved; notification outcome is reported to the admin UI. */ }
     }));
     return { ok: true, assignedTo: actor, telegramSent: sent, telegramTotal: chatIds.length };

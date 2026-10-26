@@ -42,7 +42,7 @@ export function OrderCheckout({ totalKopecks, onAccepted, onBusy, available = tr
       try { sessionStorage.setItem("solvar-order-attempt", JSON.stringify({ ...attempt.current, at: Date.now() })); } catch { /* optional persistence */ }
       const result = await client.shop.createOrder({ ...payload, captchaToken, requestId: attempt.current.id });
       trackShop("order_saved");
-      onAccepted(result.id);
+      onAccepted(String(result.number));
       cart.clear();
     } catch (e) { setCaptchaToken(""); setCaptchaReset(v => v + 1); setError(e instanceof Error ? e.message : "Не удалось отправить. Повторите: повторная попытка не создаст дубль."); }
     finally { submitting.current = false; setBusy(false); onBusy(false); }

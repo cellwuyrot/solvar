@@ -24,7 +24,12 @@ export async function persistOrder(id: string, requestHash: string, device: stri
       await tx.insert(s.orderGuards).values({ key, orderId: id, blockedUntil: Date.now() + 600000 })
         .onConflictDoUpdate({ target: s.orderGuards.key, set: { orderId: id, blockedUntil: Date.now() + 600000 } });
     }
-    await tx.insert(s.orders).values({ id, requestHash, createdAt: now, data: JSON.stringify(data),
+    const [sequence] = await tx.update(s.orderCounter)
+      .set({ value: sql`${s.orderCounter.value} + 1` })
+      .where(eq(s.orderCounter.id, "main"))
+      .returning({ value: s.orderCounter.value });
+    if (!sequence) throw new ORPCError("PRECONDITION_FAILED", { message: "Сначала выполните настройку заказов (db:orders)" });
+    await tx.insert(s.orders).values({ id, orderNumber: sequence.value, requestHash, createdAt: now, data: JSON.stringify(data),
       notification: telegram ? "pending" : "disabled", notificationUpdatedAt: now,
       emailNotification: email ? "pending" : "disabled", emailUpdatedAt: now });
     await tx.insert(s.orderHistory).values({ id: crypto.randomUUID(), orderId: id, at: now, actor: "customer", action: "created" });

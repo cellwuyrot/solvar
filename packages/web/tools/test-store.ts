@@ -62,6 +62,7 @@ assert.equal((await renderPageHtml(page, "/products/t-robusto/", "https://shop.e
 assert.equal((await renderPageHtml(page, "/products/t-hidden", "https://shop.example")).status, 404);
 assert.equal((await renderPageHtml(page, "/products/nope", "https://shop.example")).status, 404);
 assert.equal((await renderPageHtml(page, "/collections/cigars", "https://shop.example")).status, 200);
+assert.equal((await renderPageHtml(page, "/collections/cigarettes", "https://shop.example")).status, 200);
 assert.equal((await renderPageHtml(page, "/collections/unknown", "https://shop.example")).status, 404);
 const admin = await renderPageHtml(page, "/admin", "https://shop.example"); assert.equal(admin.noindex, true); assert(admin.html.includes("noindex,nofollow"));
 let paths = await sitemapPaths();
@@ -93,8 +94,8 @@ await rejectCode(() => rpc("", device(), "192.0.2.73").shop.createOrder(order({ 
 await rejectCode(() => rpc("", device(), "192.0.2.74").shop.createOrder(order({ items: [{ productId: "missing", qty: 1 }], phone: "+7 999 100-00-03" })), "CONFLICT");
 assert.equal((await db.select().from(s.orders)).length, 0);
 const valid = order();
-assert.deepEqual(await buyer.shop.createOrder(valid), { id: valid.requestId, accepted: true });
-assert.deepEqual(await buyer.shop.createOrder(valid), { id: valid.requestId, accepted: true }); // retry after lost response
+assert.deepEqual(await buyer.shop.createOrder(valid), { id: valid.requestId, number: 1, accepted: true });
+assert.deepEqual(await buyer.shop.createOrder(valid), { id: valid.requestId, number: 1, accepted: true }); // retry after lost response
 assert.equal((await db.select().from(s.orders)).length, 1);
 await rejectCode(() => buyer.shop.createOrder({ ...valid, comment: "другое" }), "CONFLICT");
 await rejectCode(() => rpc("", device(), "192.0.2.75").shop.createOrder(order()), "CONFLICT"); // same phone, request still in progress
@@ -107,7 +108,7 @@ pass("reservation validated on server (consent, phone, honeypot, totals, availab
 await rejectCode(() => anon.management.orders({ offset: 0 }), "UNAUTHORIZED");
 await rejectCode(() => buyer.management.orders({ offset: 0 }), "UNAUTHORIZED");
 const listed = await owner.management.orders({ offset: 0 });
-assert.equal(listed.orders.length, 1); assert.equal(listed.orders[0].id, valid.requestId); assert.equal(listed.orders[0].status, "new");
+assert.equal(listed.orders.length, 1); assert.equal(listed.orders[0].id, valid.requestId); assert.equal(listed.orders[0].orderNumber, 1); assert.equal(listed.orders[0].status, "new");
 await owner.management.setOrderStatus({ id: valid.requestId, version: listed.orders[0].version, status: "contacted" });
 await rejectCode(() => owner.management.setOrderStatus({ id: valid.requestId, version: listed.orders[0].version, status: "completed" }), "CONFLICT"); // stale version
 const after = (await owner.management.orders({ offset: 0, status: "contacted" })).orders[0];

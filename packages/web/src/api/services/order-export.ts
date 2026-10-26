@@ -9,10 +9,10 @@ const status = (value: string) => statusLabels[value as OrderStatus] || value;
 const when = (iso: string) => iso.replace("T", " ").slice(0, 19);
 
 async function allOrders() {
-  const rows: { id: string; createdAt: string; status: string; assignedTo: string; notification: string; emailNotification: string; data: OrderSnapshot }[] = [];
+  const rows: { id: string; orderNumber: number; createdAt: string; status: string; assignedTo: string; notification: string; emailNotification: string; data: OrderSnapshot }[] = [];
   for (let offset = 0; ; offset += 500) {
     const page = await db.select().from(s.orders).orderBy(asc(s.orders.createdAt), asc(s.orders.id)).limit(500).offset(offset);
-    for (const row of page) { try { rows.push({ id: row.id, createdAt: row.createdAt, status: row.status, assignedTo: row.assignedTo || "", notification: row.notification, emailNotification: row.emailNotification, data: JSON.parse(row.data) }); } catch { /* skip unreadable legacy row */ } }
+    for (const row of page) { try { rows.push({ id: row.id, orderNumber: row.orderNumber, createdAt: row.createdAt, status: row.status, assignedTo: row.assignedTo || "", notification: row.notification, emailNotification: row.emailNotification, data: JSON.parse(row.data) }); } catch { /* skip unreadable legacy row */ } }
     if (page.length < 500) return rows;
   }
 }
@@ -20,7 +20,7 @@ async function allOrders() {
 /** One row per reservation request. Personal data: call only from owner-only procedures. */
 export async function ordersCsv() {
   const orders = await allOrders();
-  const rows = orders.map(o => [o.id, when(o.createdAt), status(o.status), safeCell(o.data.name), o.data.phone, safeCell(o.data.email || ""), safeCell(o.data.preferredTime || ""), safeCell(o.data.telegram || ""), safeCell(o.assignedTo), safeCell(o.data.comment || ""),
+  const rows = orders.map(o => [o.orderNumber, when(o.createdAt), status(o.status), safeCell(o.data.name), o.data.phone, safeCell(o.data.email || ""), safeCell(o.data.preferredTime || ""), safeCell(o.data.telegram || ""), safeCell(o.assignedTo), safeCell(o.data.comment || ""),
     safeCell(o.data.items.map(i => `${i.name} × ${i.qty}`).join("; ")), rub(o.data.subtotalKopecks), rub(o.data.deliveryKopecks), rub(o.data.totalKopecks), o.notification, o.emailNotification]);
   return { count: rows.length, csv: toCsv([["Номер заявки", "Дата", "Статус", "Имя", "Телефон", "Email", "Удобное время связи", "Telegram-ник", "Взял в работу", "Комментарий", "Позиции", "Товары, ₽", "Доставка, ₽", "Итого, ₽", "Telegram уведомление", "Почта"], ...rows]) };
 }

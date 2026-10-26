@@ -37,6 +37,6 @@ export default function Information() {
         <dl className="information-details">{s?.company && <><dt>Организация</dt><dd>{s.company}</dd></>}{s?.address && <><dt>Адрес</dt><dd>{s.address}</dd></>}{s?.hours && <><dt>Время работы</dt><dd>{s.hours}</dd></>}{s?.phone && <><dt>Телефон</dt><dd><a href={`tel:${s.phone.replace(/[^+\d]/g, "")}`}>{s.phone}</a></dd></>}{s?.email && <><dt>Email</dt><dd><a href={`mailto:${s.email}`}>{s.email}</a></dd></>}{s?.inn && <><dt>ИНН</dt><dd>{s.inn}</dd></>}{s?.ogrn && <><dt>ОГРН / ОГРНИП</dt><dd>{s.ogrn}</dd></>}</dl>
       <VisitForm /></section>}
     </main>
-    <footer className="information-footer"><span>© {new Date().getFullYear()} {s?.name || "SOLVAR"}</span><a href="/admin">Управление</a></footer>
+    <footer className="information-footer"><span>© {new Date().getFullYear()} {s?.name || "SOLVAR"}</span></footer>
   </div>;
 }

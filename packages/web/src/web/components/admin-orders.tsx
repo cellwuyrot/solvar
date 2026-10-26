@@ -15,7 +15,7 @@ export function AdminOrders({ role }: { role: "owner" | "admin" }) {
   const config = useQuery(orpc.management.integration.queryOptions({ enabled: role === "owner" }));
   return <div className="space-y-6">
     {role === "owner" && (config.isPending ? <p>Загрузка настроек…</p> : config.isError ? <p className="error">{err(config.error)}</p> : <IntegrationEditor key={JSON.stringify(config.data)} initial={config.data!} />)}
-    <section className="admin-form space-y-3"><h2 className="serif text-3xl">Архив обращений</h2>{role === "owner" && <OrderExportButtons />}
+    <section className="admin-form space-y-3"><h2 className="serif text-3xl">Список заказов</h2>{role === "owner" && <OrderExportButtons />}
       <div className="grid gap-3 sm:grid-cols-2"><input className="field" aria-label="Поиск заявок" placeholder="Имя, телефон, email, Telegram или номер заявки" maxLength={100} value={search} onChange={e => { setSearch(e.target.value); setOffset(0); }} /><select className="field" aria-label="Фильтр статуса" value={status} onChange={e => { setStatus(e.target.value); setOffset(0); }}><option value="">Все статусы</option>{orderStatusSchema.options.map(v => <option key={v} value={v}>{statusLabels[v]}</option>)}</select></div>
     </section>
     {q.isPending ? <p>Загрузка…</p> : q.isError ? <p className="error">{err(q.error)}</p> : !q.data!.orders.length ? <p>Заявок не найдено.</p> : q.data!.orders.map(order => <OrderCard key={order.id} order={order} />)}
@@ -35,7 +35,7 @@ function OrderCard({ order }: { order: Order }) {
   const remove = useMutation(orpc.management.deleteClosedOrder.mutationOptions({ onSuccess: refresh }));
   useEffect(() => { if (!dirty) { setNote(order.adminNote); setNoteVersion(order.version); } }, [order.adminNote, order.version, dirty]);
   return <article className="admin-form space-y-3" data-order-id={order.id}>
-    <div className="flex flex-wrap justify-between gap-2"><b className="break-all">№ {order.id}</b><time>{new Date(order.createdAt).toLocaleString("ru-RU")}</time></div>
+    <div className="flex flex-wrap justify-between gap-2"><b>№ {order.orderNumber}</b><time>{new Date(order.createdAt).toLocaleString("ru-RU")}</time></div>
     <div className="space-y-1 text-sm">
       <p><b>Клиент:</b> {order.data.name}</p>
       <p><b>Телефон:</b> <a className="underline" href={`tel:${order.data.phone}`}>{order.data.phone}</a></p>
@@ -77,7 +77,7 @@ function PaymentEditor({ order }: { order: Order }) {
     <label className="field-label">Ссылка оплаты<input className="field" type="url" maxLength={1000} value={form.paymentUrl} onChange={e => change("paymentUrl", e.target.value)} /></label>
     <label className="field-label">Статус оплаты<select aria-label="Статус оплаты" className="field" value={form.state} onChange={e => change("state", e.target.value)}><option value="not_invoiced">Счёт не выставлен</option><option value="invoiced">Счёт выставлен</option><option value="paid">Оплачено — подтверждено вручную</option></select></label>
     <div className="flex flex-wrap gap-3"><button className="btn" disabled={!dirty || save.isPending} onClick={() => { const amount = Number(form.amount); if (!Number.isFinite(amount) || amount < 0) return; save.mutate({ id: order.id, version, invoiceNumber: form.invoiceNumber, paymentUrl: form.paymentUrl, finalTotalKopecks: Math.round(amount * 100), state: form.state as "not_invoiced" | "invoiced" | "paid" }); }}>Сохранить счёт</button>
-    {!!p.paymentUrl && <button className="btn btn-outline" onClick={async () => { try { await navigator.clipboard.writeText(`SOLVAR: счёт ${p.invoiceNumber || ""} по заявке ${order.id}. Сумма: ${rub((p.finalTotalKopecks ?? order.data.totalKopecks) / 100)}. Ссылка оплаты: ${p.paymentUrl}`); setCopyMessage("Сохранённая ссылка скопирована. Отправьте её покупателю выбранным способом."); } catch { setCopyMessage("Копирование недоступно. Скопируйте сохранённую ссылку вручную: " + p.paymentUrl); } }}>Скопировать сообщение покупателю</button>}</div>
+    {!!p.paymentUrl && <button className="btn btn-outline" onClick={async () => { try { await navigator.clipboard.writeText(`SOLVAR: счёт ${p.invoiceNumber || ""} по заявке № ${order.orderNumber}. Сумма: ${rub((p.finalTotalKopecks ?? order.data.totalKopecks) / 100)}. Ссылка оплаты: ${p.paymentUrl}`); setCopyMessage("Сохранённая ссылка скопирована. Отправьте её покупателю выбранным способом."); } catch { setCopyMessage("Копирование недоступно. Скопируйте сохранённую ссылку вручную: " + p.paymentUrl); } }}>Скопировать сообщение покупателю</button>}</div>
     {copyMessage && <p role="status" className="text-sm break-all">{copyMessage}</p>}{save.error && <p className="error">{err(save.error)}</p>}
   </section>;
 }

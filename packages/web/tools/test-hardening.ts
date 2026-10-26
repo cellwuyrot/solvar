@@ -139,13 +139,14 @@ const { createClient } = await import("@libsql/client"); const restoredClient = 
 assert.equal((await restoredClient.execute("SELECT admin_note FROM shop_orders WHERE id='" + orderId + "'")).rows[0].admin_note, "INTERNAL_EDIT");
 assert.equal((await restoredClient.execute("SELECT COUNT(*) AS n FROM shop_products")).rows[0].n, settings.products.length); restoredClient.close();
 pass("restored notes, catalog rows and administrative schema readable");
-const beforeMigrations = JSON.stringify(await db.select().from(s.orders));
+const beforeMigrations = JSON.stringify((await db.select().from(s.orders)).map(({ orderNumber: _orderNumber, ...row }) => row));
 for (let iteration = 0; iteration < 2; iteration++) for (const script of ["tools/setup-orders.ts", "tools/setup-admins.ts"]) {
   const child = Bun.spawn([process.execPath, script], { cwd: process.cwd(), env: process.env, stdout: "pipe", stderr: "pipe" });
   const exit = await child.exited;
   if (exit !== 0) throw new Error("Migration test failed: " + script); // Never echo environment or SQL.
 }
-assert.equal(JSON.stringify(await db.select().from(s.orders)), beforeMigrations);
+assert.equal(JSON.stringify((await db.select().from(s.orders)).map(({ orderNumber: _orderNumber, ...row }) => row)), beforeMigrations);
+assert((await db.select().from(s.orders)).every(row => row.orderNumber > 0));
 assert.equal((await db.select().from(s.adminMembers).where(eq(s.adminMembers.role, "owner")))[0].userId, login.user.id);
 pass("additive migrations repeated twice; existing owner, notes and order JSON unchanged; automatic verified backups created");
 const ready = await app.fetch(new Request("http://localhost:4200/api/ready")); assert.equal(ready.status, 200);
@@ -164,8 +165,8 @@ for (let iteration = 0; iteration < 2; iteration++) {
   assert.equal(await child.exited, 0);
 }
 const upgraded = createClient({ url: "file:" + legacyPath });
-const [old] = (await upgraded.execute("SELECT data,admin_note,version,email_notification FROM shop_orders WHERE id='legacy-fixture'")).rows;
-assert.equal(old.data, JSON.stringify(data)); assert.equal(old.admin_note, ""); assert.equal(old.version, 0); assert.equal(old.email_notification, "disabled"); upgraded.close();
+const [old] = (await upgraded.execute("SELECT data,admin_note,version,email_notification,order_number FROM shop_orders WHERE id='legacy-fixture'")).rows;
+assert.equal(old.data, JSON.stringify(data)); assert.equal(old.admin_note, ""); assert.equal(old.version, 0); assert.equal(old.email_notification, "disabled"); assert.equal(old.order_number, 1); upgraded.close();
 pass("actual legacy order schema upgraded twice; JSON preserved and missing columns added");
 const { existsSync } = await import("node:fs");
 const forbiddenPath = join(directory, "must-not-be-created.db");

@@ -30,7 +30,7 @@ test("claim endpoint atomically assigns the order and prepares a team notificati
   assert.match(route, /claimOrder: admin\.input/);
   assert.match(route, /assignedTo: actor, status: "contacted"/);
   assert.match(route, /action: "claimed_order"/);
-  assert.match(route, /заявку № \$\{input\.id\} взял администратор/);
+  assert.match(route, /заявку № \$\{publicOrderNumber\} взял администратор/);
 });
 
 test("Telegram queue sends to configured recipients and stores per-recipient progress", () => {
