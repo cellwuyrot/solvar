@@ -14,6 +14,7 @@ import { startVisitWorker } from "./services/visits";
 import { auth } from "./auth";
 import { checkOrigin, ordersAvailable } from "./services/orders";
 import { issueDevice } from "./services/order-security";
+import { mailboxManagement } from "./routes/mailbox";
 
 // API features are oRPC procedures, one file per feature in ./routes/,
 // composed into this router — typed end-to-end via the clients
@@ -27,7 +28,7 @@ export const router = {
   staff: visitStaff,
   visitOwner,
   shop: { ...shop, ...orderPublic },
-  management: { ...management, ...orderManagement, ...adminMemberManagement, ...managerManagement },
+  management: { ...management, ...orderManagement, ...mailboxManagement, ...adminMemberManagement, ...managerManagement },
 };
 
 export type AppRouter = typeof router;

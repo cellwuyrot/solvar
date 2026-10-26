@@ -71,7 +71,7 @@ export async function renderPageHtml(html: string, rawPath: string, origin: stri
   else body += `<p>${h(description)}</p><ul>${sectionProducts.map(p => `<li><a href="/products/${encodeURIComponent(p.id)}">${h(p.name)}</a> — ${h(String(p.price))} ₽</li>`).join("")}</ul>`;
   body += "</main>";
 
-  const image = product?.image.startsWith("https://") ? product.image : `${origin}/og-image.png`;
+  const image = product?.image.startsWith("https://") ? product.image : `${origin}/brand/solvar-s-square.png`;
   const structured: unknown[] = [];
   if (valid && !isAdmin) {
     if (product) structured.push({ "@context": "https://schema.org", "@type": "Product", name: product.name, description, sku: product.id, image,
@@ -81,8 +81,8 @@ export async function renderPageHtml(html: string, rawPath: string, origin: stri
     if (crumbs.length) structured.push({ "@context": "https://schema.org", "@type": "BreadcrumbList", itemListElement: crumbs.map((c, i) => ({ "@type": "ListItem", position: i + 1, name: c.name, item: origin + (c.path === "/" ? "/" : c.path) })) });
   }
   const jsonld = structured.length ? `\n<script id="seo-jsonld" type="application/ld+json">${JSON.stringify(structured).replace(/</g, "\\u003c")}</script>` : "";
-  const head = `<title>${h(title)}</title>\n<meta name="description" content="${h(description)}" />\n<meta name="robots" content="${noindex ? "noindex,nofollow" : "index,follow"}" />\n<link rel="canonical" href="${h(canonical)}" />\n<meta property="og:title" content="${h(title)}" />\n<meta property="og:description" content="${h(description)}" />\n<meta property="og:url" content="${h(canonical)}" />\n<meta property="og:type" content="${product ? "product" : "website"}" />\n<meta property="og:image" content="${h(image)}" />${jsonld}`;
-  const patched = html.replace(/<title>[\s\S]*?<\/title>/, "").replace(/<meta (?:name="(?:description|robots)"|property="og:[^"]+")[^>]*>/g, "").replace(/<link rel="canonical"[^>]*>/g, "")
+  const head = `<title>${h(title)}</title>\n<meta name="description" content="${h(description)}" />\n<meta name="robots" content="${noindex ? "noindex,nofollow" : "index,follow"}" />\n<link rel="canonical" href="${h(canonical)}" />\n<meta property="og:title" content="${h(title)}" />\n<meta property="og:description" content="${h(description)}" />\n<meta property="og:url" content="${h(canonical)}" />\n<meta property="og:type" content="${product ? "product" : "website"}" />\n<meta property="og:site_name" content="${h(settings.name || "SOLVAR")}" />\n<meta property="og:image" content="${h(image)}" />\n<meta property="og:image:alt" content="${h(settings.name || "SOLVAR")} — фирменный знак" />\n<meta name="twitter:title" content="${h(title)}" />\n<meta name="twitter:description" content="${h(description)}" />\n<meta name="twitter:image" content="${h(image)}" />${jsonld}`;
+  const patched = html.replace(/<title>[\s\S]*?<\/title>/, "").replace(/<meta (?:name="(?:description|robots|twitter:title|twitter:description|twitter:image)"|property="og:[^"]+")[^>]*>/g, "").replace(/<link rel="canonical"[^>]*>/g, "")
     .replace("</head>", head + "\n</head>").replace('<div id="root"></div>', `<div id="root">${body}</div>`);
   return { html: patched, status: valid ? 200 : 404, noindex };
 }

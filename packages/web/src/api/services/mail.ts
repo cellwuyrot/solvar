@@ -1,8 +1,8 @@
 import nodemailer from "nodemailer";
 import { z } from "zod";
 
-/** Standard SMTP transport. Trioz connection values must come from the owner's panel,
- * not from its panel URL. No secrets or message bodies are logged or returned. */
+/** Standard SMTP transport. Keep credentials in the server-side environment only.
+ * No secrets or message bodies are logged or returned. */
 export const smtpConfigured = () => !!process.env.SMTP_HOST && !!process.env.SMTP_FROM && !!process.env.SMTP_USER && !!process.env.SMTP_PASSWORD;
 export function smtpOptions() {
   if (!smtpConfigured()) throw new Error("SMTP не настроен");
