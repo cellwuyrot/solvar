@@ -14,6 +14,18 @@ import { deliverOrder, sendEmail, smtpConfigured } from "../services/order-notif
 import { editOrder, persistOrder } from "../services/order-persistence";
 import { customersCsv, ordersCsv } from "../services/order-export";
 const editSchema = z.object({ id: z.string().uuid(), version: z.number().int().nonnegative() });
+const deleteOrderProcedure = admin.input(editSchema).handler(async ({ input, context }) => databaseRetry(() => db.transaction(async tx => {
+  const [row] = await tx.select().from(s.orders).where(eq(s.orders.id, input.id));
+  if (!row) throw new ORPCError("NOT_FOUND", { message: "Заявка не найдена" });
+  if (row.version !== input.version) throw new ORPCError("CONFLICT", { message: "Заявка обновилась. Обновите список и повторите удаление." });
+  if (row.notification === "sending" || row.emailNotification === "sending") throw new ORPCError("CONFLICT", { message: "Дождитесь окончания отправки уведомлений." });
+  await tx.delete(s.orderHistory).where(eq(s.orderHistory.orderId, input.id));
+  await tx.delete(s.orderGuards).where(eq(s.orderGuards.orderId, input.id));
+  const deleted = await tx.delete(s.orders).where(and(eq(s.orders.id, input.id), eq(s.orders.version, input.version))).returning({ orderNumber: s.orders.orderNumber });
+  if (!deleted.length) throw new ORPCError("CONFLICT", { message: "Заявка обновилась. Обновите список и повторите удаление." });
+  console.info(`Deleted order #${deleted[0].orderNumber} by administrator ${context.user.email}`);
+  return { ok: true };
+})));
 export const orderPublic = {
   createOrder: base.input(orderInputSchema).handler(async ({ input, context }) => {
     checkOrigin(context.headers);
@@ -124,17 +136,9 @@ export const orderManagement = {
   }),
   orderHistory: admin.input(z.object({ id: z.string().uuid() })).handler(({ input }) =>
     db.select().from(s.orderHistory).where(eq(s.orderHistory.orderId, input.id)).orderBy(desc(s.orderHistory.at)).limit(100)),
-  deleteClosedOrder: admin.input(editSchema).handler(async ({ input, context }) => databaseRetry(() => db.transaction(async tx => {
-    const [row] = await tx.select().from(s.orders).where(eq(s.orders.id, input.id));
-    if (!row) throw new ORPCError("NOT_FOUND");
-    if (row.version !== input.version) throw new ORPCError("CONFLICT");
-    if (!["completed", "cancelled"].includes(row.status)) throw new ORPCError("CONFLICT", { message: "Удалять можно только завершённые или отменённые заявки" });
-    if (row.notification === "sending" || row.emailNotification === "sending") throw new ORPCError("CONFLICT", { message: "Дождитесь окончания отправки" });
-    await tx.delete(s.orders).where(and(eq(s.orders.id, input.id), eq(s.orders.version, input.version)));
-    await tx.delete(s.orderHistory).where(eq(s.orderHistory.orderId, input.id));
-    await tx.insert(s.orderHistory).values({ id: crypto.randomUUID(), orderId: input.id, at: new Date().toISOString(), actor: context.user.email, action: "personal_data_deleted" });
-    return { ok: true };
-  }))),
+  deleteOrder: deleteOrderProcedure,
+  /** Backwards-compatible alias for older clients; new UI uses deleteOrder. */
+  deleteClosedOrder: deleteOrderProcedure,
   retryNotification: admin.input(z.object({ id: z.string().uuid(), channel: z.enum(["telegram", "email"]).default("telegram") })).handler(async ({ input }) => {
     const [row] = await db.select().from(s.orders).where(eq(s.orders.id, input.id));
     if (!row) throw new ORPCError("NOT_FOUND");

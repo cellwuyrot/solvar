@@ -9,6 +9,7 @@ import {
   Gem,
   RotateCcw,
   LogOut,
+  Mail,
   Package,
   ClipboardList,
   Plus,
@@ -45,6 +46,7 @@ import { AdminMembers } from "../components/admin-members";
 import { AdminVisits, StaffPassword } from "../components/admin-visits";
 import { ManagerMembers } from "../components/manager-members";
 import { AdminOrders } from "../components/admin-orders";
+import { AdminMailbox } from "../components/admin-mailbox";
 import { AdminImageBulk } from "../components/admin-image-bulk";
 import { AdminDuplicates } from "../components/admin-duplicates";
 import { ProductBulkTools } from "../components/admin-bulk";
@@ -146,7 +148,7 @@ function Login({ onDone }: { onDone: () => void }) {
 }
 function Dashboard({ email, role, userId, onLogout }: { email: string; userId: string; role: "owner" | "admin"; onLogout: () => void }) {
   const q = useManagement();
-  const [tab, setTab] = useState<"products" | "sets" | "brand" | "settings" | "orders" | "members" | "visits">("products");
+  const [tab, setTab] = useState<"products" | "sets" | "brand" | "settings" | "orders" | "mail" | "members" | "visits">("products");
   const [search, setSearch] = useState("");
   const [country, setCountry] = useState("");
   const [edit, setEdit] = useState<Product | null>(null);
@@ -185,6 +187,7 @@ function Dashboard({ email, role, userId, onLogout }: { email: string; userId: s
           [
             ["products", "Товары", LayoutGrid],
             ["orders", "Заказы клиентов", ClipboardList],
+            ["mail", "Почта", Mail],
             ["sets", "Наборы", Package],
             ["brand", "Логотип", Gem],
             ["settings", "Настройки", SettingsIcon],
@@ -221,7 +224,7 @@ function Dashboard({ email, role, userId, onLogout }: { email: string; userId: s
           <div>
             <p className="eyebrow mb-1">УПРАВЛЕНИЕ</p>
             <h1 className="serif text-4xl">
-              {tab === "visits" ? "Записи на визит" : tab === "members" ? "Команда" : tab === "orders" ? "Заказы клиентов" : tab === "brand" ? "Логотип и фавикон" : tab === "settings"
+              {tab === "visits" ? "Записи на визит" : tab === "members" ? "Команда" : tab === "orders" ? "Заказы клиентов" : tab === "mail" ? "Почта" : tab === "brand" ? "Логотип и фавикон" : tab === "settings"
                 ? "Настройки магазина"
                 : tab === "sets"
                   ? "Авторские наборы"
@@ -248,6 +251,8 @@ function Dashboard({ email, role, userId, onLogout }: { email: string; userId: s
           </p>
         ) : tab === "visits" ? (<><AdminVisits role={role} userId={userId} /><StaffPassword /></>) : tab === "members" && role === "owner" ? (<><ManagerMembers /><AdminMembers /></>) : tab === "orders" ? (
           <AdminOrders role={role} />
+        ) : tab === "mail" ? (
+          <AdminMailbox />
         ) : tab === "brand" ? (
           <BrandEditor initial={q.data!.settings} />
         ) : tab === "settings" ? (

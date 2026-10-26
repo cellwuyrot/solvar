@@ -61,11 +61,13 @@ export function Seo({
     setProperty("og:description", description);
     setProperty("og:url", url);
     setProperty("og:site_name", siteName);
-    setProperty("og:image", `${window.location.origin}/og-image.png`);
+    const shareImage = type === "product" && products[0]?.image.startsWith("https://") ? products[0].image : `${window.location.origin}/brand/solvar-s-square.png`;
+    setProperty("og:image", shareImage);
+    setProperty("og:image:alt", `${siteName} — фирменный знак`);
     setMeta("twitter:card", "summary_large_image");
     setMeta("twitter:title", document.title);
     setMeta("twitter:description", description);
-    setMeta("twitter:image", `${window.location.origin}/og-image.png`);
+    setMeta("twitter:image", shareImage);
     setCanonical(url);
 
     const existing = document.getElementById("seo-jsonld");

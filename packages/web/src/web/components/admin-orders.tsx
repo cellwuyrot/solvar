@@ -25,6 +25,7 @@ export function AdminOrders({ role }: { role: "owner" | "admin" }) {
 function OrderCard({ order }: { order: Order }) {
   const cache = useQueryClient();
   const refresh = () => cache.invalidateQueries();
+  const [expanded, setExpanded] = useState(false);
   const [note, setNote] = useState(order.adminNote), [noteVersion, setNoteVersion] = useState(order.version), [dirty, setDirty] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const history = useQuery(orpc.management.orderHistory.queryOptions({ input: { id: order.id }, enabled: historyOpen }));
@@ -32,36 +33,46 @@ function OrderCard({ order }: { order: Order }) {
   const claim = useMutation(orpc.management.claimOrder.mutationOptions({ onSuccess: refresh }));
   const saveNote = useMutation(orpc.management.setAdminNote.mutationOptions({ onSuccess: () => { setDirty(false); void refresh(); } }));
   const retry = useMutation(orpc.management.retryNotification.mutationOptions({ onSuccess: refresh }));
-  const remove = useMutation(orpc.management.deleteClosedOrder.mutationOptions({ onSuccess: refresh }));
+  const remove = useMutation(orpc.management.deleteOrder.mutationOptions({ onSuccess: () => { void refresh(); } }));
   useEffect(() => { if (!dirty) { setNote(order.adminNote); setNoteVersion(order.version); } }, [order.adminNote, order.version, dirty]);
-  return <article className="admin-form space-y-3" data-order-id={order.id}>
-    <div className="flex flex-wrap justify-between gap-2"><b>№ {order.orderNumber}</b><time>{new Date(order.createdAt).toLocaleString("ru-RU")}</time></div>
-    <div className="space-y-1 text-sm">
-      <p><b>Клиент:</b> {order.data.name}</p>
-      <p><b>Телефон:</b> <a className="underline" href={`tel:${order.data.phone}`}>{order.data.phone}</a></p>
-      {order.data.preferredTime && <p><b>Удобное время связи:</b> {order.data.preferredTime}</p>}
-      {order.data.email && <p><b>Email:</b> <a className="underline" href={`mailto:${order.data.email}`}>{order.data.email}</a></p>}
-      {order.data.telegram && <p><b>Telegram:</b> {order.data.telegram.replace(/^@/, "") ? <a className="underline" href={`https://t.me/${order.data.telegram.replace(/^@/, "")}`} target="_blank" rel="noreferrer">{order.data.telegram.startsWith("@") ? order.data.telegram : `@${order.data.telegram}`}</a> : order.data.telegram}</p>}
-      <p><b>Взял в работу:</b> {order.assignedTo || "Не назначена"}</p>
-      {order.data.comment && <p className="whitespace-pre-wrap"><b>Комментарий клиента:</b> {order.data.comment}</p>}
-    </div>
-    <ul>{order.data.items.map(item => <li key={item.productId}>{item.name} × {item.qty} — {rub(item.priceKopecks * item.qty / 100)}</li>)}</ul>
-    <p>Предварительная доставка: {rub(order.data.deliveryKopecks / 100)}. <b>Итого: {rub(order.data.totalKopecks / 100)}</b></p>
-    {!order.assignedTo && !["completed", "cancelled"].includes(order.status) && <button className="btn" disabled={claim.isPending} onClick={() => claim.mutate({ id: order.id, version: order.version })}>{claim.isPending ? "Назначаем…" : "Взять заявку в работу"}</button>}
-    {claim.data && <p role="status" className={claim.data.telegramSent < claim.data.telegramTotal ? "text-sm text-amber-800" : "text-sm text-muted"}>{claim.data.telegramTotal ? `Заявка назначена: ${claim.data.assignedTo}. Уведомления Telegram: ${claim.data.telegramSent} из ${claim.data.telegramTotal}.` : `Заявку взял ${claim.data.assignedTo}. Chat ID для Telegram-уведомлений не настроены.`}</p>}
-    <label className="field-label">Статус заявки<select aria-label="Статус заявки" className="field mt-1" value={order.status} disabled={update.isPending} onChange={e => update.mutate({ id: order.id, version: order.version, status: orderStatusSchema.parse(e.target.value) })}>{orderStatusSchema.options.map(v => <option key={v} value={v}>{statusLabels[v]}</option>)}</select></label>
-    <label className="field-label">Внутренняя заметка администратора<textarea className="field mt-1" aria-label="Внутренняя заметка администратора" rows={3} maxLength={5000} value={note} onChange={e => { setDirty(true); setNote(e.target.value); }} /></label>
-    <div className="flex flex-wrap gap-3"><button className="btn" disabled={!dirty || saveNote.isPending} onClick={() => saveNote.mutate({ id: order.id, version: noteVersion, note })}>Сохранить заметку</button>{dirty && <button className="btn btn-outline" onClick={() => { if (confirm("Заменить несохранённую заметку значением из базы?")) { setDirty(false); setNote(order.adminNote); setNoteVersion(order.version); } }}>Загрузить заметку из базы</button>}</div>
-    <p className="text-xs text-muted">Заметка доступна только в админке: она не включается в уведомления и не отправляется покупателю.</p>
-    <PaymentEditor order={order} />
-    {(["telegram", "email"] as const).map(channel => { const state = channel === "telegram" ? order.notification : order.emailNotification; const error = channel === "telegram" ? order.notificationError : order.emailError; const attempts = channel === "telegram" ? order.telegramAttempts : order.emailAttempts;
-      return <div key={channel} className="border-t pt-3 text-sm"><p>{channel === "telegram" ? "Telegram" : "Почта"}: {labels[state] || state} · попыток: {attempts}</p>{error && <p className="error">{error}</p>}{state !== "sent" && <button className="btn mt-2" disabled={retry.isPending} onClick={() => retry.mutate({ id: order.id, channel })}>Повторить: {channel === "telegram" ? "Telegram" : "почта"}</button>}</div>; })}
-    <p className="text-xs text-muted">Уведомления отправляются в фоне; при ошибке канала заявка остаётся сохранённой, повторить отправку можно кнопкой.</p>
-    {(claim.error || update.error || saveNote.error || retry.error || remove.error) && <p role="alert" className="error">{err(claim.error || update.error || saveNote.error || retry.error || remove.error)}</p>}
-    {retry.data && retry.data.notification !== "sent" && <p className="error">{retry.data.error || "Канал выключен или отправка ещё выполняется"}</p>}
-    <button className="underline text-sm" onClick={() => setHistoryOpen(!historyOpen)}>{historyOpen ? "Скрыть историю" : "История изменений"}</button>
-    {historyOpen && <div className="text-xs space-y-1">{history.isError ? <p className="error">{err(history.error)}</p> : history.data?.map(h => <p key={h.id}>{new Date(h.at).toLocaleString("ru-RU")} · {h.actor} · {h.action}</p>)}</div>}
-    {["completed", "cancelled"].includes(order.status) && <button className="block text-sm text-red-700 underline" disabled={remove.isPending} onClick={() => { if (confirm("Удалить заявку, её заметку и персональные данные из базы? Копии в Telegram, письмах и резервных копиях удаляются отдельно.")) remove.mutate({ id: order.id, version: order.version }); }}>Удалить данные закрытой заявки</button>}
+  return <article className={`admin-order-card ${expanded ? "expanded" : ""}`} data-order-id={order.id}>
+    <button type="button" className="admin-order-summary" aria-expanded={expanded} onClick={() => setExpanded(value => !value)}>
+      <span className="admin-order-number">№ {order.orderNumber}</span>
+      <span className="admin-order-client"><b>{order.data.name}</b><small>{order.data.phone}</small></span>
+      <span className={`admin-order-status status-${order.status}`}>{statusLabels[order.status] || order.status}</span>
+      <span className="admin-order-total">{rub(order.data.totalKopecks / 100)}</span>
+      <span className="admin-order-date">{new Date(order.createdAt).toLocaleDateString("ru-RU")}</span>
+      <span className="admin-order-toggle">{expanded ? "Свернуть −" : "Подробнее +"}</span>
+    </button>
+    {expanded && <div className="admin-order-details space-y-3">
+      <div className="flex flex-wrap justify-between gap-2"><b>Заявка № {order.orderNumber}</b><time>{new Date(order.createdAt).toLocaleString("ru-RU")}</time></div>
+      <div className="space-y-1 text-sm">
+        <p><b>Клиент:</b> {order.data.name}</p>
+        <p><b>Телефон:</b> <a className="underline" href={`tel:${order.data.phone}`}>{order.data.phone}</a></p>
+        {order.data.preferredTime && <p><b>Удобное время связи:</b> {order.data.preferredTime}</p>}
+        {order.data.email && <p><b>Email:</b> <a className="underline" href={`mailto:${order.data.email}`}>{order.data.email}</a></p>}
+        {order.data.telegram && <p><b>Telegram:</b> {order.data.telegram.replace(/^@/, "") ? <a className="underline" href={`https://t.me/${order.data.telegram.replace(/^@/, "")}`} target="_blank" rel="noreferrer">{order.data.telegram.startsWith("@") ? order.data.telegram : `@${order.data.telegram}`}</a> : order.data.telegram}</p>}
+        <p><b>Взял в работу:</b> {order.assignedTo || "Не назначена"}</p>
+        {order.data.comment && <p className="whitespace-pre-wrap"><b>Комментарий клиента:</b> {order.data.comment}</p>}
+      </div>
+      <ul>{order.data.items.map(item => <li key={item.productId}>{item.name} × {item.qty} — {rub(item.priceKopecks * item.qty / 100)}</li>)}</ul>
+      <p>Предварительная доставка: {rub(order.data.deliveryKopecks / 100)}. <b>Итого: {rub(order.data.totalKopecks / 100)}</b></p>
+      {!order.assignedTo && !["completed", "cancelled"].includes(order.status) && <button className="btn" disabled={claim.isPending} onClick={() => claim.mutate({ id: order.id, version: order.version })}>{claim.isPending ? "Назначаем…" : "Взять заявку в работу"}</button>}
+      {claim.data && <p role="status" className={claim.data.telegramSent < claim.data.telegramTotal ? "text-sm text-amber-800" : "text-sm text-muted"}>{claim.data.telegramTotal ? `Заявка назначена: ${claim.data.assignedTo}. Уведомления Telegram: ${claim.data.telegramSent} из ${claim.data.telegramTotal}.` : `Заявку взял ${claim.data.assignedTo}. Chat ID для Telegram-уведомлений не настроены.`}</p>}
+      <label className="field-label">Статус заявки<select aria-label="Статус заявки" className="field mt-1" value={order.status} disabled={update.isPending} onChange={e => update.mutate({ id: order.id, version: order.version, status: orderStatusSchema.parse(e.target.value) })}>{orderStatusSchema.options.map(v => <option key={v} value={v}>{statusLabels[v]}</option>)}</select></label>
+      <label className="field-label">Внутренняя заметка администратора<textarea className="field mt-1" aria-label="Внутренняя заметка администратора" rows={3} maxLength={5000} value={note} onChange={e => { setDirty(true); setNote(e.target.value); }} /></label>
+      <div className="flex flex-wrap gap-3"><button className="btn" disabled={!dirty || saveNote.isPending} onClick={() => saveNote.mutate({ id: order.id, version: noteVersion, note })}>Сохранить заметку</button>{dirty && <button className="btn btn-outline" onClick={() => { if (confirm("Заменить несохранённую заметку значением из базы?")) { setDirty(false); setNote(order.adminNote); setNoteVersion(order.version); } }}>Загрузить заметку из базы</button>}</div>
+      <p className="text-xs text-muted">Заметка доступна только в админке: она не включается в уведомления и не отправляется покупателю.</p>
+      <PaymentEditor order={order} />
+      {(["telegram", "email"] as const).map(channel => { const state = channel === "telegram" ? order.notification : order.emailNotification; const error = channel === "telegram" ? order.notificationError : order.emailError; const attempts = channel === "telegram" ? order.telegramAttempts : order.emailAttempts;
+        return <div key={channel} className="border-t pt-3 text-sm"><p>{channel === "telegram" ? "Telegram" : "Почта"}: {labels[state] || state} · попыток: {attempts}</p>{error && <p className="error">{error}</p>}{state !== "sent" && <button className="btn mt-2" disabled={retry.isPending} onClick={() => retry.mutate({ id: order.id, channel })}>Повторить: {channel === "telegram" ? "Telegram" : "почта"}</button>}</div>; })}
+      <p className="text-xs text-muted">Уведомления отправляются в фоне; при ошибке канала заявка остаётся сохранённой, повторить отправку можно кнопкой.</p>
+      {(claim.error || update.error || saveNote.error || retry.error || remove.error) && <p role="alert" className="error">{err(claim.error || update.error || saveNote.error || retry.error || remove.error)}</p>}
+      {retry.data && retry.data.notification !== "sent" && <p className="error">{retry.data.error || "Канал выключен или отправка ещё выполняется"}</p>}
+      <button className="underline text-sm" onClick={() => setHistoryOpen(!historyOpen)}>{historyOpen ? "Скрыть историю" : "История изменений"}</button>
+      {historyOpen && <div className="text-xs space-y-1">{history.isError ? <p className="error">{err(history.error)}</p> : history.data?.map(h => <p key={h.id}>{new Date(h.at).toLocaleString("ru-RU")} · {h.actor} · {h.action}</p>)}</div>}
+      <button className="admin-order-delete" disabled={remove.isPending || order.notification === "sending" || order.emailNotification === "sending"} onClick={() => { if (confirm(`Удалить заказ № ${order.orderNumber} и всю историю изменений? Это действие необратимо. Копии писем, сообщений Telegram и резервных копий удаляются отдельно.`)) remove.mutate({ id: order.id, version: order.version }); }}>{remove.isPending ? "Удаляем…" : "Удалить заказ"}</button>
+    </div>}
   </article>;
 }
 function PaymentEditor({ order }: { order: Order }) {
