@@ -22,6 +22,15 @@ export const SECTIONS: Record<
     glyph: "C",
     desc: "Каталог сигар с характеристиками, происхождением и актуальным наличием от продавца.",
   },
+  cigarettes: {
+    title: "Сигареты",
+    label: "CIGARETTES · SELECTED COLLECTION",
+    accent: "#9E9A92",
+    secondary: "#D1CDC3",
+    bg: "#151515",
+    glyph: "S",
+    desc: "Каталог сигарет с подробными характеристиками и актуальным наличием от продавца.",
+  },
   tobacco: {
     title: "Табак",
     label: "TOBACCO · BLENDS",

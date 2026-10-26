@@ -4,7 +4,7 @@ import { ORPCError } from "@orpc/server";
 import { db } from "../database";
 import * as s from "../database/schema";
 import { integrationSchema, type OrderSnapshot } from "../../shared/orders";
-import { productSchema, settingsSchema, rub } from "../../shared/shop";
+import { productSchema, normalizeSettings, rub } from "../../shared/shop";
 import { captchaConfigured, captchaRequired } from "./order-security";
 
 export const digest = (v: string) => createHash("sha256").update(v).digest("hex");
@@ -21,7 +21,7 @@ export async function ordersAvailable() {
 export async function getSettings() {
   const [row] = await db.select().from(s.settings).where(eq(s.settings.id, "main"));
   if (!row) throw new ORPCError("INTERNAL_SERVER_ERROR", { message: "Выполните db:seed" });
-  return settingsSchema.parse(JSON.parse(row.data));
+  return normalizeSettings(JSON.parse(row.data));
 }
 export async function makeSnapshot(input: { name: string; phone: string; email?: string; preferredTime?: string; telegram?: string; comment: string; items: { productId: string; qty: number }[]; expectedTotalKopecks: number }): Promise<OrderSnapshot> {
   if (new Set(input.items.map(i => i.productId)).size !== input.items.length)
@@ -63,16 +63,16 @@ export async function sendTelegram(chatId: string, text: string) {
   try { result = await response.json() as typeof result; } catch { throw new Error("Некорректный ответ Telegram"); }
   if (!response.ok || !result.ok) throw new Error(`Telegram отклонил запрос (код ${result.error_code || response.status})`);
 }
-export function formatOrderMessage(id: string, at: string, data: OrderSnapshot) {
+export function formatOrderMessage(orderNumber: number, at: string, data: OrderSnapshot) {
   const lines = data.items.map(i => `${i.name.slice(0, 28)} × ${i.qty} — ${rub(i.priceKopecks * i.qty / 100)}`);
-  return ["Новая заявка SOLVAR (не оплачена)", `№ ${id}`, `Дата: ${at}`, `Имя: ${data.name}`, `Телефон: ${data.phone}`, data.email ? `Email: ${data.email}` : "", data.preferredTime ? `Удобное время связи: ${data.preferredTime}` : "", data.telegram ? `Telegram: ${data.telegram}` : "",
+  return ["Новая заявка SOLVAR (не оплачена)", `№ ${orderNumber}`, `Дата: ${at}`, `Имя: ${data.name}`, `Телефон: ${data.phone}`, data.email ? `Email: ${data.email}` : "", data.preferredTime ? `Удобное время связи: ${data.preferredTime}` : "", data.telegram ? `Telegram: ${data.telegram}` : "",
     ...lines, `Товары: ${rub(data.subtotalKopecks / 100)}`, `Доставка предварительно: ${rub(data.deliveryKopecks / 100)}`,
     `Итого предварительно: ${rub(data.totalKopecks / 100)}`, data.comment ? `Комментарий: ${data.comment}` : "",
     "Наличие, доставка и окончательная сумма требуют подтверждения продавцом."].filter(Boolean).join("\n");
 }
 export async function listOrders(offset: number, search = "", status = "") {
   const escaped = "%" + search.replace(/[\\%_]/g, v => "\\" + v) + "%";
-  const where = and(status ? eq(s.orders.status, status) : undefined, search ? sql`(json_extract(${s.orders.data}, '$.name') LIKE ${escaped} ESCAPE '\\' OR json_extract(${s.orders.data}, '$.phone') LIKE ${escaped} ESCAPE '\\' OR json_extract(${s.orders.data}, '$.email') LIKE ${escaped} ESCAPE '\\' OR json_extract(${s.orders.data}, '$.telegram') LIKE ${escaped} ESCAPE '\\' OR ${s.orders.id} LIKE ${escaped} ESCAPE '\\')` : undefined);
+  const where = and(status ? eq(s.orders.status, status) : undefined, search ? sql`(json_extract(${s.orders.data}, '$.name') LIKE ${escaped} ESCAPE '\\' OR json_extract(${s.orders.data}, '$.phone') LIKE ${escaped} ESCAPE '\\' OR json_extract(${s.orders.data}, '$.email') LIKE ${escaped} ESCAPE '\\' OR json_extract(${s.orders.data}, '$.telegram') LIKE ${escaped} ESCAPE '\\' OR CAST(${s.orders.orderNumber} AS TEXT) LIKE ${escaped} ESCAPE '\\' OR ${s.orders.id} LIKE ${escaped} ESCAPE '\\')` : undefined);
   const rows = await db.select().from(s.orders).where(where).orderBy(desc(s.orders.createdAt), desc(s.orders.id)).limit(51).offset(offset);
   return { hasMore: rows.length > 50, orders: rows.slice(0, 50).map(({ requestHash: _hash, telegramDeliveredChats: _telegramDeliveredChats, ...row }) => ({ ...row, paymentData: JSON.parse(row.paymentData) as { invoiceNumber?: string; paymentUrl?: string; finalTotalKopecks?: number; state?: string }, data: JSON.parse(row.data) as OrderSnapshot })) };
 }

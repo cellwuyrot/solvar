@@ -10,6 +10,7 @@ import {
   RotateCcw,
   LogOut,
   Package,
+  ClipboardList,
   Plus,
   Save,
   Search,
@@ -183,6 +184,7 @@ function Dashboard({ email, role, userId, onLogout }: { email: string; userId: s
         {(
           [
             ["products", "Товары", LayoutGrid],
+            ["orders", "Заказы клиентов", ClipboardList],
             ["sets", "Наборы", Package],
             ["brand", "Логотип", Gem],
             ["settings", "Настройки", SettingsIcon],
@@ -219,7 +221,7 @@ function Dashboard({ email, role, userId, onLogout }: { email: string; userId: s
           <div>
             <p className="eyebrow mb-1">УПРАВЛЕНИЕ</p>
             <h1 className="serif text-4xl">
-              {tab === "visits" ? "Записи на визит" : tab === "members" ? "Команда" : tab === "orders" ? "Заявки и Telegram" : tab === "brand" ? "Логотип и фавикон" : tab === "settings"
+              {tab === "visits" ? "Записи на визит" : tab === "members" ? "Команда" : tab === "orders" ? "Заказы клиентов" : tab === "brand" ? "Логотип и фавикон" : tab === "settings"
                 ? "Настройки магазина"
                 : tab === "sets"
                   ? "Авторские наборы"
@@ -291,7 +293,7 @@ function Dashboard({ email, role, userId, onLogout }: { email: string; userId: s
                   onChange={(e) => setCountry(e.target.value)}
                 >
                   <option value="">Все разделы</option>
-                  {(["cigars", "tobacco", "accessories"] as SectionId[]).map((id) => (
+                  {(["cigars", "cigarettes", "tobacco", "accessories"] as SectionId[]).map((id) => (
                     <option key={id} value={id}>
                       {SECTIONS[id].title}
                     </option>

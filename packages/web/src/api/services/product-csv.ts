@@ -8,7 +8,7 @@ export { PRODUCT_COLUMNS } from "../../shared/product-import";
 export const MAX_IMPORT_ROWS = 2000;
 export const MAX_IMPORT_BYTES = 1_500_000; // characters; keeps the JSON request under the global body limit
 
-const SECTION_NAMES: Record<string, Product["section"]> = { "коллекции": "sets", "коллекция": "sets", "набор": "sets", "наборы": "sets", "сигары": "cigars", "сигара": "cigars", "табак": "tobacco", "аксессуары": "accessories", "аксессуар": "accessories" };
+const SECTION_NAMES: Record<string, Product["section"]> = { "коллекции": "sets", "коллекция": "sets", "набор": "sets", "наборы": "sets", "сигары": "cigars", "сигара": "cigars", "сигареты": "cigarettes", "сигарета": "cigarettes", "табак": "tobacco", "аксессуары": "accessories", "аксессуар": "accessories" };
 const AVAILABILITY: Record<string, Product["availability"]> = { "в наличии": "in_stock", "есть": "in_stock", "нет в наличии": "out_of_stock", "нет": "out_of_stock", "уточняется": "unknown", "": "unknown" };
 const NUMERIC = new Set<Column>(["price", "oldPrice", "spice", "cost", "demand", "sort"]);
 const BOOLEAN = new Set<Column>(["active", "featured", "seoNoindex"]);
@@ -109,7 +109,7 @@ export function parseProductImport(csv: string, existing: Product[]): ImportResu
       }
       if (NUMERIC.has(column)) { const n = parseNumber(value); if (n === undefined) problem(column, `${column}: «${value}» не число`); else record[column] = n; }
       else if (BOOLEAN.has(column)) { const b = parseBoolean(value); if (b === undefined) problem(column, `${column}: используйте 1/0 или да/нет`); else record[column] = b; }
-      else if (column === "section") { const section = SECTION_NAMES[value.toLowerCase()] || (value in SECTIONS ? value : undefined); if (!section) problem("section", `section: «${value}» неизвестен (sets, cigars, tobacco, accessories)`); else record.section = section; }
+      else if (column === "section") { const section = SECTION_NAMES[value.toLowerCase()] || (value in SECTIONS ? value : undefined); if (!section) problem("section", `section: «${value}» неизвестен (sets, cigars, cigarettes, tobacco, accessories)`); else record.section = section; }
       else if (column === "availability") { const a = AVAILABILITY[value.toLowerCase()] || (["unknown", "in_stock", "out_of_stock"].includes(value) ? value : undefined); if (!a) problem("availability", `availability: «${value}» неизвестно (in_stock, out_of_stock, unknown)`); else record.availability = a; }
       else if (column === "contents") {
         const parts = value.split("|").map(v => v.trim()).filter(Boolean).map(v => {

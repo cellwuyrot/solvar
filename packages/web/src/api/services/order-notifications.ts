@@ -24,7 +24,7 @@ export async function deliverOrder(id: string, channel: "telegram" | "email", ma
   if (!row) return;
   const attempts = channel === "telegram" ? row.telegramAttempts : row.emailAttempts;
   try {
-    const text = formatOrderMessage(row.id, row.createdAt, JSON.parse(row.data));
+    const text = formatOrderMessage(row.orderNumber, row.createdAt, JSON.parse(row.data));
     if (channel === "telegram") {
       const chatIds = getOrderChatIds(config);
       let delivered: string[] = [];
@@ -41,7 +41,7 @@ export async function deliverOrder(id: string, channel: "telegram" | "email", ma
         } catch { failed = true; }
       }
       if (failed) throw new Error("Один или несколько Telegram-адресатов не приняли сообщение");
-    } else await sendEmail(config.notifyEmail, `SOLVAR: новая заявка ${row.id}`, text);
+    } else await sendEmail(config.notifyEmail, `SOLVAR: новая заявка № ${row.orderNumber}`, text);
     await databaseRetry(() => db.update(s.orders).set(channel === "telegram" ? { notification: "sent", notificationError: "", telegramRetryAt: "", notificationUpdatedAt: now }
       : { emailNotification: "sent", emailError: "", emailRetryAt: "", emailUpdatedAt: now }).where(and(eq(s.orders.id, id), eq(attemptsColumn, attempts), eq(atColumn, now))));
   } catch (e) {

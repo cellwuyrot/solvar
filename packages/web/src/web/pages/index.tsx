@@ -11,7 +11,7 @@ import { brandImage } from "../../shared/shop";
 import { SECTIONS, positionCount } from "../../shared/catalog-display";
 import type { SectionId } from "../../shared/shop";
 
-const categories: SectionId[] = ["cigars", "tobacco", "accessories", "sets"];
+const categories: SectionId[] = ["cigars", "tobacco", "cigarettes", "accessories", "sets"];
 
 export default function Index() {
   const q = useShop();
@@ -34,14 +34,14 @@ export default function Index() {
         </section>
         <section id="collections" className="category-section">
           <div className="container">
-            <div className="section-intro"><p className="eyebrow"><span className="eyebrow-line" /> КАТАЛОГ</p><h2>Четыре направления.</h2><p>Состав, происхождение и детали каждой позиции — в соответствующем разделе.</p></div>
+            <div className="section-intro"><p className="eyebrow"><span className="eyebrow-line" /> КАТАЛОГ</p><h2>Пять направлений.</h2><p>Состав, происхождение и детали каждой позиции — в соответствующем разделе.</p></div>
             <div className="category-grid">
               {categories.map((id, index) => {
                 const item = SECTIONS[id];
                 const count = products.filter((p) => p.section === id).length;
                 return <a href={`/collections/${id}`} className={`category-card category-card-${id}`} style={{ "--category-accent": item.accent } as CSSProperties & { "--category-accent": string }} key={id}>
                   <div className="category-card-top"><span>0{index + 1}</span><ArrowUpRight size={17} /></div>
-                  <div className="category-card-emblem" aria-hidden="true">{["I", "II", "III", "IV"][index]}</div>
+                  <div className="category-card-emblem" aria-hidden="true">{["I", "II", "III", "IV", "V"][index]}</div>
                   <div className="category-card-bottom"><div><h3>{item.title}</h3><p>{count ? positionCount(count) : "Каталог пополняется"}</p></div><span className="category-card-arrow"><ArrowUpRight size={17} /></span></div>
                 </a>;
               })}

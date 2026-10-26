@@ -1,5 +1,5 @@
 import { z } from "zod";
-export const sectionSchema = z.enum(["sets", "cigars", "accessories", "tobacco"]);
+export const sectionSchema = z.enum(["sets", "cigars", "cigarettes", "accessories", "tobacco"]);
 export type SectionId = z.infer<typeof sectionSchema>;
 export const productSchema = z.object({
   id: z
@@ -81,6 +81,20 @@ export function brandImage(settings: Partial<Settings> | undefined, key: keyof t
   return settings?.[key] || BRAND_DEFAULTS[key];
 }
 export type Settings = z.infer<typeof settingsSchema>;
+
+/** Keep the public brand consistent when settings were carried over from the former CHERNOGOR name. */
+export function normalizeSettings(value: unknown): Settings {
+  const parsed = settingsSchema.parse(value);
+  const normalized = { ...parsed };
+  const normalize = (text: string) => text.replace(/chernogor/gi, "Solvar").replace(/черногор/gi, "Solvar");
+  for (const key of ["name", "tagline", "heroTitle", "heroText", "delivery", "payment", "privacy", "offer", "returns", "about"] as const) {
+    normalized[key] = normalize(normalized[key]);
+  }
+  if (/информация о способах оплаты готовится/i.test(normalized.payment) || /онлайн-оплата пока не подключена/i.test(normalized.payment)) {
+    normalized.payment = "Информация по оплате предоставляется менеджером";
+  }
+  return normalized;
+}
 export const initialSettings: Settings = {
   name: "SOLVAR",
   tagline: "SOLVAR — Эстетика характера.",
@@ -106,7 +120,7 @@ export const initialSettings: Settings = {
     "SOLVAR — каталог сигар, табака и аксессуаров. Условия предложения, продажи и доставки должны соответствовать законодательству страны, в которой работает магазин.",
   delivery:
     "Информация о доставке готовится. Уточните регионы, сроки, стоимость и условия перевозки у продавца перед оформлением заказа.",
-  payment: "Информация о способах оплаты готовится. Онлайн-оплата пока не подключена.",
+  payment: "Информация по оплате предоставляется менеджером",
   privacy:
     "Политика конфиденциальности пока не опубликована. Продавцу необходимо заполнить сведения об операторе, целях и основаниях обработки, сроках хранения и порядке реализации прав субъекта персональных данных до запуска приёма заказов.",
   offer:

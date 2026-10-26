@@ -6,7 +6,7 @@ import { base } from "../__core/app";
 import { admin } from "../middleware/admin";
 import { db } from "../database";
 import * as s from "../database/schema";
-import { productSchema, settingsSchema } from "../../shared/shop";
+import { productSchema, settingsSchema, normalizeSettings } from "../../shared/shop";
 import { invalidatePageCache } from "../services/page-seo";
 import { httpsImage, productRuleError } from "../services/product-rules";
 import { MAX_IMPORT_BYTES, parseProductImport, productsToCsv, productTemplateCsv } from "../services/product-csv";
@@ -22,7 +22,7 @@ async function list() {
 async function settings() {
   const [r] = await db.select().from(s.settings).where(eq(s.settings.id, "main"));
   if (!r) throw new ORPCError("INTERNAL_SERVER_ERROR", { message: "Выполните db:seed" });
-  const data = settingsSchema.parse(JSON.parse(r.data));
+  const data = normalizeSettings(JSON.parse(r.data));
   return data;
 }
 const brandImageOk = (v: string) => !v || httpsImage(v) || /^\/brand\/[A-Za-z0-9_-]+\.(png|webp)$/.test(v) || /^data:image\/(webp|png);base64,[A-Za-z0-9+/=]+$/.test(v);
@@ -120,18 +120,19 @@ export const management = {
     return { ok: true };
   }),
   saveSettings: admin.input(settingsSchema).handler(async ({ input }) => {
-    for (const url of [input.telegram, input.vk, input.avito])
+    const normalizedInput = normalizeSettings(input);
+    for (const url of [normalizedInput.telegram, normalizedInput.vk, normalizedInput.avito])
       if (url && !url.startsWith("https://"))
         throw new ORPCError("BAD_REQUEST", { message: "Соцсети: используйте HTTPS-ссылки" });
-    for (const v of [input.logoMark, input.logoHero, input.favicon])
+    for (const v of [normalizedInput.logoMark, normalizedInput.logoHero, normalizedInput.favicon])
       if (!brandImageOk(v))
         throw new ORPCError("BAD_REQUEST", { message: "Логотип: загрузите файл или укажите HTTPS-ссылку" });
     await db
       .insert(s.settings)
-      .values({ id: "main", data: JSON.stringify(input) })
-      .onConflictDoUpdate({ target: s.settings.id, set: { data: sql`json_set(${JSON.stringify(input)}, '$.logoMark', json_extract(shop_settings.data, '$.logoMark'), '$.logoHero', json_extract(shop_settings.data, '$.logoHero'), '$.favicon', json_extract(shop_settings.data, '$.favicon'))` } });
+      .values({ id: "main", data: JSON.stringify(normalizedInput) })
+      .onConflictDoUpdate({ target: s.settings.id, set: { data: sql`json_set(${JSON.stringify(normalizedInput)}, '$.logoMark', json_extract(shop_settings.data, '$.logoMark'), '$.logoHero', json_extract(shop_settings.data, '$.logoHero'), '$.favicon', json_extract(shop_settings.data, '$.favicon'))` } });
     invalidatePageCache();
-    return input;
+    return normalizedInput;
   }),
   upload: admin.input(z.object({ data: z.string().max(3000000) })).handler(async ({ input }) => {
     const m = input.data.match(/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/);

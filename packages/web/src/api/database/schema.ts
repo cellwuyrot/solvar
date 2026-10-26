@@ -16,6 +16,7 @@ export const orderIntegration = sqliteTable("shop_order_integration", {
 });
 export const orders = sqliteTable("shop_orders", {
   id: text("id").primaryKey(),
+  orderNumber: integer("order_number").notNull().default(0),
   requestHash: text("request_hash").notNull(),
   createdAt: text("created_at").notNull(),
   data: text("data").notNull(),
@@ -37,6 +38,7 @@ export const orders = sqliteTable("shop_orders", {
   emailRetryAt: text("email_retry_at").notNull().default(""),
 }, t => [index("shop_orders_created_at_idx").on(t.createdAt, t.id)]);
 
+export const orderCounter = sqliteTable("shop_order_counter", { id: text("id").primaryKey(), value: integer("value").notNull() });
 export const orderGuards = sqliteTable("shop_order_guards", {
   key: text("key").primaryKey(), orderId: text("order_id").notNull(), blockedUntil: integer("blocked_until").notNull(),
 });
